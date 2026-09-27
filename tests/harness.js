@@ -64,31 +64,28 @@ function desert(seed){
     vm.runInContext(read(f), ctx, { filename:f }));
   const { VM, COSTUMES, DINO, BLOCKS } = ctx;
 
-  /* THE ROOM'S cast(), done by hand: three objects where the page puts them */
+  /* THE ROOM'S cast(), off the room's own list: every object where the
+     page puts it, wearing what the page dresses it in */
   const root=new ctx.THREE.Group();
   VM.useScratch(); VM.enter(root);
   VM.project.actors.slice().forEach(a=>VM.delActor(a));
   const N=DINO.NUM, S=DINO.scripts();
-  const make=(name, shape, x, visible, vars)=>{
-    const a=VM.addActor({ name, shape, size:1 });
-    a.x=x; a.z=0; a.y=1; a.visible=visible; a.vars=vars||{};
-    a.scripts=JSON.parse(JSON.stringify(S[name]));
+  DINO.CAST.forEach(c=>{
+    const a=VM.addActor({ name:c.name, shape:c.shape, size:1 });
+    a.x=c.x; a.z=-c.y; a.y=1; a.visible=c.visible; a.vars=Object.assign({}, c.vars);
+    a.scripts=JSON.parse(JSON.stringify(S[c.name]));
     VM.sync(a); VM.setHome(a);
-    return a;
-  };
-  make(DINO.DINO, 'dino/dino', N.START_X, true, { jump:0 });
-  make(DINO.OBST, 'desert/cactus', N.SPAWN_X, false, { kind:1 });
-  make(DINO.GROUND, 'desert/ground', 0, true);
-  VM.project.vars.speed=N.SPEED; VM.project.vars.score=0;
+  });
+  VM.project.vars.speed=N.SPEED; VM.project.vars.score=0; VM.project.vars.next=0;
 
   let t=0;
   function step(){
     VM.step(1/60);
     now+=1000/60; t+=1/60;
-    COSTUMES.animate(VM.running, t);
   }
   const dino = () => VM.actorByName(DINO.DINO);
-  const obstacles = () => VM.project.actors.filter(a=>a.name===DINO.OBST && a.isClone && a.visible);
+  const names = DINO.OBSTACLES.map(o=>o.name);
+  const obstacles = () => VM.project.actors.filter(a=>names.includes(a.name) && a.isClone && a.visible);
   return { ctx, VM, COSTUMES, DINO, BLOCKS, G:ctx.G, step, dino, obstacles,
            get seconds(){ return t; } };
 }

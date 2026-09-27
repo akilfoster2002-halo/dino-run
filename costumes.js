@@ -11,6 +11,11 @@
 
      #   ink       o   paper (an eye, a highlight)       .   nothing
 
+   ONE PICTURE PER COSTUME, and it does not move. No running legs, no
+   blinking, no flapping: what a thing looks like only changes when a
+   block says `become a [...]`, so everything on the screen is something
+   a student can find in the code.
+
    One pixel of art is a tenth of a square, so the Dino — 22 × 24 — is
    2.2 squares wide and 2.4 tall, and those are the numbers a student
    meets in the blocks: a bird at y = 2.6 flies over a standing Dino and
@@ -57,27 +62,13 @@ window.COSTUMES = (function(){
     '....#########.........',
     '.....#######..........'
   ];
-  const BLINK = DINO_HEAD.map((r,i)=> i===1 ? r.replace('o','#') : r);
-  const LEGS = {
-    stand: [
-      '......###.##..........',
-      '......##...#..........',
-      '......#....#..........',
-      '......#....#..........',
-      '......##...##.........' ],
-    run1: [
-      '......###.##..........',
-      '......##...#..........',
-      '......#....##.........',
-      '......#...............',
-      '......##..............' ],
-    run2: [
-      '......###.##..........',
-      '......##...#..........',
-      '......##...#..........',
-      '...........#..........',
-      '...........##.........' ]
-  };
+  const LEGS = [
+    '......###.##..........',
+    '......##...#..........',
+    '......#....#..........',
+    '......#....#..........',
+    '......##...##.........'
+  ];
   const DEAD = DINO_HEAD.map((r,i)=>{
     if(i===0) return '............#########.';
     if(i===1) return '...........#ooo#######';
@@ -88,34 +79,19 @@ window.COSTUMES = (function(){
     return r;
   });
 
-  const DUCK = {
-    a: [
-      '..............................',
-      '#.....##########...##########.',
-      '##..##############.##o#######.',
-      '.#############################',
-      '..############################',
-      '...##########################.',
-      '....####################.....',
-      '.....##########.####.#######..',
-      '......#####.##..#.............',
-      '......##...##.................',
-      '......#.....#.................',
-      '......##....##................' ],
-    b: [
-      '..............................',
-      '#.....##########...##########.',
-      '##..##############.##o#######.',
-      '.#############################',
-      '..############################',
-      '...##########################.',
-      '....####################.....',
-      '.....##########.####.#######..',
-      '......#####.##..#.............',
-      '.......##..##.................',
-      '............#.................',
-      '............##................' ]
-  };
+  const DUCK = [
+    '#.....##########...##########.',
+    '##..##############.##o#######.',
+    '.#############################',
+    '..############################',
+    '...##########################.',
+    '....####################.....',
+    '.....##########.####.#######..',
+    '......#####.##..#.............',
+    '......##...##.................',
+    '......#.....#.................',
+    '......##....##................'
+  ];
 
   const CACTUS = [
     '....##...',
@@ -171,49 +147,24 @@ window.COSTUMES = (function(){
     return BIG.map((r,i)=>s[i]+'.'+r+'.'+s[i]);
   })();
 
-  /* a pterodactyl, flying left: beak and crest at the front, one wing
-     that goes up and comes down */
-  const BIRD_BODY = [
+  /* a pterodactyl, flying left: beak and crest at the front, wing up.
+     The bottom of the picture is its belly, so a bird's `y position` is
+     where it flies clear of: at 1.3 a ducking Dino fits under it. */
+  const BIRD = [
+    '..............#...........',
+    '..............##..........',
+    '..............###.........',
+    '..............####........',
+    '..............#####.......',
     '....#.........######......',
     '...##.........#######.....',
     '..####........########....',
     '.###o#################....',
     '##########################',
     '......###################.',
-    '.......##############.....'
+    '.......##############.....',
+    '.........#######..........'
   ];
-  const BIRD = {
-    up: [
-      '..............#...........',
-      '..............##..........',
-      '..............###.........',
-      '..............####........',
-      '..............#####.......',
-      ...BIRD_BODY,
-      '.........#######..........',
-      '..........................',
-      '..........................',
-      '..........................',
-      '..........................',
-      '..........................',
-      '..........................',
-      '..........................' ],
-    down: [
-      '..........................',
-      '..........................',
-      '..........................',
-      '..........................',
-      '..........................',
-      ...BIRD_BODY.map((r,i)=> i<3 ? r.slice(0,6)+'.'.repeat(20) : r),
-      '.........##############...',
-      '..............#######.....',
-      '..............######......',
-      '..............#####.......',
-      '..............####........',
-      '..............###.........',
-      '..............##..........',
-      '..............#...........' ]
-  };
 
   const CLOUD = [
     '..........######.......',
@@ -250,33 +201,19 @@ window.COSTUMES = (function(){
   })();
 
   /* ============================================================ costumes
-     frames   the pictures, by name
+     art      the picture
      below    how many pixel rows hang under y = 0 (the ground's pebbles)
-     layer    what draws on top of what: the Dino over a cactus it hits
-     anim     how the frames change while the game runs — a drawing, not
-              a rule: legs that move are not something the game decides */
+     layer    what draws on top of what: the Dino over a cactus it hits */
   const C = {
-    'dino/dino': { name:'Dino', layer:3,
-      frames:{ stand:DINO_HEAD.concat(LEGS.stand), run1:DINO_HEAD.concat(LEGS.run1),
-               run2:DINO_HEAD.concat(LEGS.run2), blink:BLINK.concat(LEGS.stand) },
-      anim:(s,live,t)=>{
-        if(!live) return (t%4)<0.14 ? 'blink' : 'stand';
-        if(s.height>0.05) return 'stand';
-        return ((t*10)|0)%2 ? 'run1' : 'run2';
-      } },
-    'dino/ducking': { name:'Dino ducking', layer:3,
-      frames:{ a:DUCK.a, b:DUCK.b },
-      anim:(s,live,t)=> live && ((t*10)|0)%2 ? 'b' : 'a' },
-    'dino/crashed': { name:'Dino crashed', layer:3,
-      frames:{ dead:DEAD.concat(LEGS.stand) } },
-    'desert/cactus':  { name:'Small cactus', layer:2, frames:{ a:CACTUS } },
-    'desert/big':     { name:'Big cactus',   layer:2, frames:{ a:BIG } },
-    'desert/group':   { name:'Cactus group', layer:2, frames:{ a:GROUP } },
-    'desert/bird':    { name:'Bird', layer:2,
-      frames:{ up:BIRD.up, down:BIRD.down },
-      anim:(s,live,t)=> live && ((t*6)|0)%2 ? 'down' : 'up' },
-    'desert/ground':  { name:'Ground', layer:0, below:4, frames:{ a:GROUND } },
-    'desert/cloud':   { name:'Cloud',  layer:-1, frames:{ a:CLOUD } }
+    'dino/dino':      { name:'Dino',         layer:3, art:DINO_HEAD.concat(LEGS) },
+    'dino/ducking':   { name:'Dino ducking', layer:3, art:DUCK },
+    'dino/crashed':   { name:'Dino crashed', layer:3, art:DEAD.concat(LEGS) },
+    'desert/cactus':  { name:'Small cactus', layer:2, art:CACTUS },
+    'desert/big':     { name:'Big cactus',   layer:2, art:BIG },
+    'desert/group':   { name:'Cactus group', layer:2, art:GROUP },
+    'desert/bird':    { name:'Bird',         layer:2, art:BIRD },
+    'desert/ground':  { name:'Ground',       layer:0, art:GROUND, below:4 },
+    'desert/cloud':   { name:'Cloud',        layer:-1, art:CLOUD }
   };
 
   const it=(file,name)=>({ file, name });
@@ -309,36 +246,27 @@ window.COSTUMES = (function(){
   }
 
   /* ============================================================ drawing
-     Each frame is painted once onto a canvas one pixel per art pixel and
+     Each costume is painted once onto a canvas one pixel per art pixel and
      kept: every object wearing it, clones and all, shares the picture.
      Nearest-neighbour filtering is what keeps a pixel a square when the
      camera blows it up forty times. */
-  const made = {};                  // cid -> { w, h, frames:{ name:{ tex, mask } } }
+  const made = {};                  // cid -> { w, h, mask, tex }
   function sheet(cid){
     if(made[cid]) return made[cid];
-    const c=C[cid], out={ w:0, h:0, frames:{} };
-    Object.keys(c.frames).forEach(k=>{
-      const rows=c.frames[k];
-      const h=rows.length, w=Math.max(...rows.map(r=>r.length));
-      out.w=Math.max(out.w,w); out.h=Math.max(out.h,h);
-    });
-    Object.keys(c.frames).forEach(k=>{
-      const rows=c.frames[k], w=out.w, h=out.h;
-      const mask=new Uint8Array(w*h);
-      rows.forEach((r,j)=>{ for(let i=0;i<r.length;i++)
-        if(r[i]==='#'||r[i]==='o') mask[j*w+i] = r[i]==='#' ? 1 : 2; });
-      out.frames[k]={ mask, tex:null };
-    });
-    return (made[cid]=out);
+    const rows=C[cid].art, h=rows.length, w=Math.max(...rows.map(r=>r.length));
+    const mask=new Uint8Array(w*h);
+    rows.forEach((r,j)=>{ for(let i=0;i<r.length;i++)
+      if(r[i]==='#'||r[i]==='o') mask[j*w+i] = r[i]==='#' ? 1 : 2; });
+    return (made[cid]={ w, h, mask, tex:null });
   }
-  function texture(cid, k){
-    const sh=sheet(cid), f=sh.frames[k];
-    if(f.tex) return f.tex;
+  function texture(cid){
+    const sh=sheet(cid);
+    if(sh.tex) return sh.tex;
     const cv=document.createElement('canvas'); cv.width=sh.w; cv.height=sh.h;
     const x=cv.getContext('2d'), img=x.createImageData(sh.w, sh.h);
     const ink=hex(INK), paper=hex(PAPER);
-    for(let p=0;p<f.mask.length;p++){
-      const m=f.mask[p]; if(!m) continue;
+    for(let p=0;p<sh.mask.length;p++){
+      const m=sh.mask[p]; if(!m) continue;
       const c=m===1?ink:paper;
       img.data[p*4]=c[0]; img.data[p*4+1]=c[1]; img.data[p*4+2]=c[2]; img.data[p*4+3]=255;
     }
@@ -347,7 +275,7 @@ window.COSTUMES = (function(){
     tex.magFilter=THREE.NearestFilter; tex.minFilter=THREE.NearestFilter;
     tex.generateMipmaps=false;
     if(THREE.SRGBColorSpace) tex.colorSpace=THREE.SRGBColorSpace;
-    return (f.tex=tex);
+    return (sh.tex=tex);
   }
   function hex(h){ const n=parseInt(h.slice(1),16); return [n>>16&255, n>>8&255, n&255]; }
 
@@ -362,19 +290,15 @@ window.COSTUMES = (function(){
     return (geos[cid]=g);
   }
 
-  /* every costume in the world, so the frames can be moved on */
-  const live = new Set();
   function make(cid){
-    const c=C[cid], sh=sheet(cid);
-    const first=Object.keys(c.frames)[0];
-    const mat=new THREE.MeshBasicMaterial({ map:texture(cid, first), alphaTest:0.5 });
+    const c=C[cid];
+    const mat=new THREE.MeshBasicMaterial({ map:texture(cid), alphaTest:0.5 });
     const plane=new THREE.Mesh(geometry(cid), mat);
     plane.rotation.x=-Math.PI/2;                  // lying flat, top of the picture up the screen
     plane.position.y=0.02*(c.layer||0);
     const o=new THREE.Group();
     o.add(plane);
-    o.userData.sprite={ cid, frame:first, mat, w:sh.w, h:sh.h };
-    live.add(o);
+    o.userData.sprite={ cid };
     return o;
   }
   /* A THENABLE, NOT A PROMISE: calls back before it returns, so the
@@ -386,34 +310,13 @@ window.COSTUMES = (function(){
     return done;
   }
 
-  /* THE FRAMES MOVE ON. Called by the room once a frame with whether the
-     program is running; each costume with an `anim` picks its picture. A
-     sprite that has left the world is let go of here. */
-  function animate(running, t){
-    live.forEach(o=>{
-      const root=o.parent;                       // the object's own group
-      if(!root || !root.parent){ live.delete(o); return; }
-      const s=o.userData.sprite, c=C[s.cid];
-      if(!c.anim) return;
-      const a=root.userData && root.userData.actor;
-      const k=c.anim({ height: a ? -a.z : 0 }, running, t);
-      if(k && k!==s.frame && c.frames[k]){ s.frame=k; s.mat.map=texture(s.cid,k); s.mat.needsUpdate=true; }
-    });
-  }
-
   /* ========================================================== touching */
-  function spriteOf(a){
-    if(!a || !a.mesh || !C[a.shape]) return null;
-    const o=a.mesh.children.find(ch=>ch.userData && ch.userData.sprite);
-    return o ? o.userData.sprite : null;
-  }
   /* where an object's picture is, in the language's squares */
   function rect(a){
-    const s=spriteOf(a); if(!s) return null;
-    const c=C[s.cid], sh=sheet(s.cid), px=PX*Math.max(0.1, a.size||1);
+    if(!a || !C[a.shape]) return null;
+    const c=C[a.shape], sh=sheet(a.shape), px=PX*Math.max(0.1, a.size||1);
     const x0=a.x - sh.w*px/2, y0=(-a.z) - (c.below||0)*px;
-    return { x0, y0, x1:x0+sh.w*px, y1:y0+sh.h*px, px, w:sh.w, h:sh.h,
-             mask:sh.frames[s.frame].mask };
+    return { x0, y0, x1:x0+sh.w*px, y1:y0+sh.h*px, px, w:sh.w, h:sh.h, mask:sh.mask };
   }
   function solid(r, x, y){
     const i=Math.floor((x-r.x0)/r.px), j=Math.floor((r.y1-y)/r.px);
@@ -442,5 +345,5 @@ window.COSTUMES = (function(){
   }
 
   return { SHELVES, SHAPES, isModel, load, clips, nameOf, thumbOf, all, id, find,
-           touching, animate, rect, hit, make, PX, INK, PAPER, C };
+           touching, rect, hit, make, PX, INK, PAPER, C };
 })();

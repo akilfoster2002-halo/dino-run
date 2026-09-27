@@ -22,7 +22,8 @@ const DINOJS = bare(read('dino.js'));
 const d0 = desert(1);
 const { BLOCKS:B, DINO, COSTUMES } = d0;
 const S = DINO.scripts();
-const NAMES = [DINO.DINO, DINO.OBST, DINO.GROUND];
+const NAMES = DINO.CAST.map(c=>c.name);
+const OBST = DINO.OBSTACLES;
 
 /* ------------------------------------------------------------ helpers */
 function all(list, out){
@@ -44,7 +45,7 @@ const hat = (name,op) => S[name].find(sc=>sc.hat.op===op);
 const loopOf = sc => sc.body.find(b=>b.op==='ctrl.forever');
 
 /* ================================================== it is a whole game */
-test('all three objects arrive with a script that starts on Run', ()=>{
+test('every object arrives with a script that starts on Run', ()=>{
   NAMES.forEach(n=>{
     assert.ok(S[n] && S[n].length, n+' has no script');
     assert.ok(hat(n,'event.flag'), n+' never starts');
@@ -99,31 +100,70 @@ test('the Dino lands: below the ground it is put back on it', ()=>{
   assert.ok(land.body.some(b=>b.op==='data.set' && b.args.v==='jump' && b.args.n===0));
 });
 
-test('↓ ducks, and touching an Obstacle ends the game', ()=>{
+test('each obstacle is an object of its own, wearing its own picture', ()=>{
+  assert.deepStrictEqual(Array.from(OBST, o=>o.name), ['Small Cactus','Big Cactus','Cactus Group','Bird']);
+  OBST.forEach(o=>{
+    const c=DINO.CAST.find(x=>x.name===o.name);
+    assert.ok(c, `${o.name} is not in the cast`);
+    assert.strictEqual(c.shape, o.shape);
+    assert.ok(COSTUMES.isModel(o.shape), `${o.name} wears ${o.shape}, which is not a costume`);
+    assert.strictEqual(c.visible, false, `${o.name}'s spawner would be sitting on the screen`);
+    assert.ok(!blocks(o.name).some(b=>b.op==='looks.shape'), `${o.name} changes into something else`);
+  });
+  assert.strictEqual(new Set(OBST.map(o=>o.shape)).size, OBST.length, 'two obstacles wear the same picture');
+});
+
+test('↓ ducks, and touching any of the four ends the game', ()=>{
   const loop=loopOf(hat(DINO.DINO,'event.flag'));
   const duck=loop.body.find(b=>b.op==='ctrl.ifelse' && has(b.args.c,'sense.key'));
   assert.ok(duck && duck.args.c.args.k==='down', 'no ducking on ↓');
   assert.strictEqual(duck.body[0].args.s, 'dino/ducking');
-  const crash=loop.body.find(b=>b.op==='ctrl.if' && b.args.c.op==='sense.touch');
-  assert.ok(crash && crash.args.c.args.o===DINO.OBST, 'the Dino never checks for an Obstacle');
-  assert.ok(crash.body.some(b=>b.op==='ctrl.stop' && b.args.w==='all'), 'a crash that does not end the game');
+  OBST.forEach(o=>{
+    const crash=loop.body.find(b=>b.op==='ctrl.if' && b.args.c.op==='sense.touch' && b.args.c.args.o===o.name);
+    assert.ok(crash, `the Dino never checks whether it touched the ${o.name}`);
+    assert.ok(crash.body.some(b=>b.op==='looks.shape' && b.args.s==='dino/crashed'), 'no crashed picture');
+    assert.ok(crash.body.some(b=>b.op==='ctrl.stop' && b.args.w==='all'), `touching the ${o.name} does not end the game`);
+  });
 });
 
-test('the Obstacle is a hidden spawner, and every copy decides what it is', ()=>{
-  const flag=hat(DINO.OBST,'event.flag');
-  assert.ok(flag.body.some(b=>b.op==='looks.hide'), 'the spawner itself would be sitting on the screen');
-  const loop=loopOf(flag);
-  assert.ok(has(loop,'ctrl.clone'), 'it never makes a copy');
-  assert.ok(loop.body.some(b=>b.op==='ctrl.wait' && has(b,'op.random')), 'every gap is the same gap');
-  const clone=hat(DINO.OBST,'event.clone');
-  assert.ok(clone, 'a copy does nothing');
-  const becomes=all(clone.body).filter(b=>b.op==='looks.shape').map(b=>b.args.s);
-  ['desert/cactus','desert/big','desert/group','desert/bird'].forEach(c=>
-    assert.ok(becomes.includes(c), `nothing ever becomes ${c}`));
-  assert.ok(all(clone.body).some(b=>b.op==='op.gt' && has(b.args.a,'data.get') && b.args.a.args.v==='speed'),
-    'birds are not held back until the game is fast');
-  assert.ok(clone.body.some(b=>b.op==='ctrl.repeatUntil' && has(b,'motion.changeBy')), 'a copy never moves');
-  assert.strictEqual(clone.body[clone.body.length-1].op, 'ctrl.delclone', 'copies pile up for ever');
+test('each obstacle waits for its own number, makes one copy, and the copy slides away', ()=>{
+  assert.deepStrictEqual(OBST.map(o=>o.n).sort(), OBST.map((o,i)=>i+1), 'the numbers are not 1, 2, 3, 4');
+  OBST.forEach(o=>{
+    const flag=hat(o.name,'event.flag');
+    assert.ok(flag.body.some(b=>b.op==='looks.hide'), `${o.name}: the spawner is not hidden`);
+    const loop=loopOf(flag);
+    const wait=loop.body.find(b=>b.op==='ctrl.waitUntil');
+    assert.ok(wait && wait.args.c.op==='op.eq' && wait.args.c.args.a.args.v==='next' && wait.args.c.args.b===o.n,
+      `${o.name} does not wait for next = ${o.n}`);
+    assert.ok(loop.body.some(b=>b.op==='data.set' && b.args.v==='next' && b.args.n===0),
+      `${o.name} never gives the turn back, so it would make a copy every frame`);
+    assert.ok(has(loop,'ctrl.clone'), `${o.name} never makes a copy`);
+    const clone=hat(o.name,'event.clone');
+    assert.ok(clone, `${o.name}: a copy does nothing`);
+    assert.ok(clone.body.some(b=>b.op==='looks.show'), `${o.name}: a copy of a hidden object stays hidden`);
+    assert.ok(clone.body.some(b=>b.op==='ctrl.repeatUntil' && has(b,'motion.changeBy')), `${o.name}: a copy never moves`);
+    assert.strictEqual(clone.body[clone.body.length-1].op, 'ctrl.delclone', `${o.name}: copies pile up for ever`);
+  });
+});
+
+test('birds wait until the game is fast, and fly at one of three heights', ()=>{
+  const loop=loopOf(hat('Bird','event.flag'));
+  const gate=loop.body.find(b=>b.op==='ctrl.if' && b.args.c.op==='op.gt' && b.args.c.args.a.args.v==='speed');
+  assert.ok(gate && has(gate,'ctrl.clone'), 'birds are not held back until the game is fast');
+  const go=hat('Bird','event.clone').body.find(b=>b.op==='motion.goto');
+  assert.ok(go && has(go.args.y,'op.random'), 'every bird flies at the same height');
+  ['Small Cactus','Big Cactus','Cactus Group'].forEach(n=>
+    assert.ok(!has(loopOf(hat(n,'event.flag')),'ctrl.if'), `${n} is held back like a bird`));
+});
+
+test('the Ground picks what comes next, and when', ()=>{
+  const decide=S[DINO.GROUND].find(sc=>sc.hat.op==='event.flag' &&
+    all(sc.body).some(b=>b.op==='data.set' && b.args.v==='next' && has(b,'op.random')));
+  assert.ok(decide, 'nothing ever sets `next`, so nothing ever comes out');
+  const pick=all(decide.body).find(b=>b.op==='data.set' && b.args.v==='next' && has(b,'op.random'));
+  assert.strictEqual(pick.args.n.args.a, 1);
+  assert.strictEqual(pick.args.n.args.b, OBST.length, 'some obstacle can never be picked');
+  assert.ok(loopOf(decide).body.some(b=>b.op==='ctrl.wait' && has(b,'op.random')), 'every gap is the same gap');
 });
 
 test('the Ground scrolls, speeds the game up, and counts the score', ()=>{
@@ -147,7 +187,7 @@ test('the room does not play the game: no rule is written in JavaScript', ()=>{
 
 /* =================================================== the costumes */
 test('the ground tiles every 32 squares, so the jump back is invisible', ()=>{
-  const rows=COSTUMES.C['desert/ground'].frames.a;
+  const rows=COSTUMES.C['desert/ground'].art;
   const period=Math.round(DINO.NUM.TILE/COSTUMES.PX);
   rows.forEach((r,j)=>{
     for(let i=0;i+period<r.length;i++)
@@ -155,11 +195,17 @@ test('the ground tiles every 32 squares, so the jump back is invisible', ()=>{
   });
 });
 
+test('every character is one still picture — nothing animates by itself', ()=>{
+  Object.entries(COSTUMES.C).forEach(([cid,c])=>{
+    assert.ok(Array.isArray(c.art) && c.art.every(r=>typeof r==='string'), `${cid} is not one picture`);
+    assert.ok(!('frames' in c) && !('anim' in c), `${cid} has frames that change on their own`);
+  });
+  assert.strictEqual(COSTUMES.animate, undefined, 'the costumes still have an animation step');
+  assert.ok(!/COSTUMES\.animate/.test(DINOJS), 'the room still animates the costumes');
+});
+
 /* a stand-in object wearing a costume, for asking `touching` */
-function wearing(cid, x, y, frame){
-  const s={ cid, frame: frame || Object.keys(COSTUMES.C[cid].frames)[0] };
-  return { shape:cid, x, z:-y, size:1, mesh:{ children:[{ userData:{ sprite:s } }] } };
-}
+const wearing = (cid, x, y) => ({ shape:cid, x, z:-y, size:1 });
 test('two drawings touch where their pixels do — not where their boxes do', ()=>{
   const dino=wearing('dino/dino', -12, 0);
   assert.strictEqual(COSTUMES.touching(dino, wearing('desert/cactus', -11, 0)), true, 'a cactus in its body');
@@ -180,12 +226,10 @@ test('two drawings touch where their pixels do — not where their boxes do', ()
 test('a bird at 1.3 hits a standing Dino and misses a ducking one; at 2.6 it misses both', ()=>{
   const L=DINO.NUM.LANE;
   const stand=wearing('dino/dino', -12, 0), duck=wearing('dino/ducking', -12, 0);
-  ['up','down'].forEach(f=>{
-    assert.strictEqual(COSTUMES.touching(stand, wearing('desert/bird', -11.5, L,   f)), true,  'mid bird, standing ('+f+')');
-    assert.strictEqual(COSTUMES.touching(duck,  wearing('desert/bird', -11.5, L,   f)), false, 'mid bird, ducking ('+f+')');
-    assert.strictEqual(COSTUMES.touching(stand, wearing('desert/bird', -11.5, 2*L, f)), false, 'high bird, standing ('+f+')');
-    assert.strictEqual(COSTUMES.touching(stand, wearing('desert/bird', -11.5, 0,   f)), true,  'low bird, standing ('+f+')');
-  });
+  assert.strictEqual(COSTUMES.touching(stand, wearing('desert/bird', -11.5, L)),   true,  'mid bird, standing');
+  assert.strictEqual(COSTUMES.touching(duck,  wearing('desert/bird', -11.5, L)),   false, 'mid bird, ducking');
+  assert.strictEqual(COSTUMES.touching(stand, wearing('desert/bird', -11.5, 2*L)), false, 'high bird, standing');
+  assert.strictEqual(COSTUMES.touching(stand, wearing('desert/bird', -11.5, 0)),   true,  'low bird, standing');
 });
 
 /* ====================================================== playing it */
@@ -206,6 +250,23 @@ test('a player who jumps on time survives two minutes, all the way to top speed'
     assert.ok(+d.VM.project.vars.score > 1500, 'the score did not count up');
   });
 });
+test('in a real game all four come out, and never two in the same place', ()=>{
+  const d=desert(7);
+  const seen=new Set(), counted=new Set();
+  d.VM.greenFlag();
+  while(d.VM.running && d.seconds<120){
+    player(d, 8); d.step();
+    const on=d.obstacles();
+    on.forEach(o=>{ if(!counted.has(o)){ counted.add(o); seen.add(o.name); } });
+    /* two copies on the screen never share a stretch of ground */
+    const r=on.map(o=>d.COSTUMES.rect(o)).sort((a,b)=>a.x0-b.x0);
+    for(let i=1;i<r.length;i++)
+      assert.ok(r[i].x0 > r[i-1].x1, `two obstacles overlap at ${d.seconds.toFixed(1)}s`);
+  }
+  assert.ok(d.VM.running, `the player crashed at ${d.seconds.toFixed(1)}s`);
+  OBST.forEach(o=>assert.ok(seen.has(o.name), `no ${o.name} ever came out`));
+});
+
 test('the timing matters: jumping far too early or far too late loses', ()=>{
   const late=play(4, 0, 60), early=play(4, 30, 60);
   assert.ok(!late.VM.running, 'jumping on contact still survived');
