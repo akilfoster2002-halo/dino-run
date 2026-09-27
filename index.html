@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!-- =====================================================================
+     DINO RUN — the runner game, and every rule of it is a block.
+
+     Built out of the MESACS 0.2a framework: the same blocks.js (the
+     language), vm.js (what runs it), coder.js (the drag-and-drop editor)
+     and app.css the full game uses. dino.js is the room; costumes.js
+     draws the pixel art; boot.js stands in for game.js with a renderer,
+     a keyboard and a frame loop.
+     ===================================================================== -->
+<title>Dino Run — built out of blocks</title>
+<meta name="description" content="The dinosaur runner game, and every rule of it is a block you can open and change.">
+<link rel="stylesheet" href="app.css?v=1">
+<style>
+@font-face{font-family:'Space Mono';src:url('fonts/spacemono-700.woff2') format('woff2');
+  font-weight:700;font-style:normal;font-display:swap}
+@font-face{font-family:'Ubuntu Mono';src:url('fonts/ubuntumono-400.woff2') format('woff2');
+  font-weight:400;font-style:normal;font-display:swap}
+@font-face{font-family:'Ubuntu Mono';src:url('fonts/ubuntumono-700.woff2') format('woff2');
+  font-weight:700;font-style:normal;font-display:swap}
+@font-face{font-family:'Ubuntu Mono';src:url('fonts/ubuntumono-400i.woff2') format('woff2');
+  font-weight:400;font-style:italic;font-display:swap}
+@font-face{font-family:'JetBrains Mono';src:url('fonts/jetbrainsmono-var.woff2') format('woff2');
+  font-weight:400 700;font-style:normal;font-display:swap}
+
+/* the desert is the page: the two greys of the original */
+:root{--dn-ink:#535353;--dn-paper:#f7f7f7;--dn-dim:#9a9a9a}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--dn-paper)}
+#view{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none;
+  image-rendering:pixelated;transition:filter .6s ease}
+#coder{position:fixed;inset:0;z-index:60;pointer-events:none}
+
+/* ------------------------------------------------------------- the HUD */
+#dino{position:fixed;inset:0;z-index:56;pointer-events:none;font-family:var(--font)}
+#dnTop{position:absolute;left:14px;top:14px;display:flex;gap:8px;flex-wrap:wrap;pointer-events:auto}
+.dn-btn{background:#fff;color:var(--dn-ink);border:2px solid var(--dn-ink);
+  border-radius:10px;padding:8px 13px;font-family:var(--font-disp);font-size:13px;
+  letter-spacing:1.2px;cursor:pointer;line-height:1.1}
+.dn-btn:hover{background:#ececec}
+.dn-btn:focus-visible{outline:3px solid #7ab8ff;outline-offset:2px}
+.dn-btn small{color:var(--dn-dim);margin-left:6px;letter-spacing:1px}
+#dnRun{color:#1f7a3a;border-color:#1f7a3a}
+#dnRun.live{color:#b3261e;border-color:#b3261e}
+#dino.coding #dnTop{display:none}
+
+#dnScore{position:absolute;right:16px;top:16px;font-family:'Space Mono',var(--font-disp),monospace;
+  font-weight:700;font-size:22px;letter-spacing:2px;color:var(--dn-ink);white-space:pre;
+  transition:filter .6s ease}
+#dnScore .dn-hi{color:var(--dn-dim);margin-right:14px}
+#dnScore .off{visibility:hidden}
+
+#dnMsg{position:absolute;transform:translateX(-50%);display:grid;gap:12px;justify-items:center;
+  text-align:center;color:var(--dn-ink);font-family:'Space Mono',var(--font-disp),monospace;
+  pointer-events:auto;transition:filter .6s ease;width:max-content}
+#dnMsg .dn-over{font-size:26px;letter-spacing:10px;margin-right:-10px;white-space:nowrap}
+#dnMsg small{font-family:var(--font);font-size:15px;color:var(--dn-ink);max-width:34ch;line-height:1.35}
+#dnMsg .dn-start{font-size:17px}
+.dn-again{background:none;border:0;color:var(--dn-ink);cursor:pointer;padding:4px;border-radius:8px}
+.dn-again:hover{background:rgba(0,0,0,.06)}
+.dn-again:focus-visible{outline:3px solid #7ab8ff}
+
+/* NIGHT, the way the original does it: the whole picture turns over */
+body.night{background:#0b0b0b}
+body.night #view,body.night #dnScore,body.night #dnMsg{filter:invert(1)}
+
+/* the brief — how to play, and what to try changing */
+#dnBrief{position:fixed;inset:0;z-index:80;display:grid;place-items:center;
+  background:rgba(247,247,247,.82);padding:16px}
+#dnBrief .card{position:relative;max-width:640px;width:100%;max-height:92vh;overflow:auto;padding:26px 30px;
+  background:var(--ink);border:1px solid var(--line);border-radius:18px;color:var(--text);text-align:left;
+  box-shadow:0 18px 50px rgba(0,0,0,.25)}
+#dnBrief h1{font-family:'Space Mono',var(--font-disp);letter-spacing:4px;font-size:28px;margin:0 0 4px}
+#dnBrief .kick{color:var(--star);font-size:12px;letter-spacing:2px;margin:14px 0 6px}
+#dnBrief h1 + .kick{margin-top:0}
+#dnBrief p{color:var(--muted);line-height:1.5;margin:8px 0}
+#dnBrief p b{color:var(--text)}
+#dnBrief ol{margin:6px 0 10px;padding-left:22px;line-height:1.5;color:var(--muted)}
+#dnBrief li{margin:5px 0}
+#dnBrief li b{color:var(--text)}
+#dnBrief code{font-family:var(--font-code);font-size:12.5px;background:var(--panel2);
+  padding:1px 6px;border-radius:6px;color:var(--star);white-space:nowrap}
+#dnBrief .dn-keys{display:flex;gap:10px;flex-wrap:wrap;margin:12px 0}
+#dnBrief .dn-keys div{background:var(--panel2);border:1px solid var(--line);border-radius:10px;
+  padding:7px 11px;color:var(--muted)}
+#dnBrief .dn-keys span{color:var(--text);margin-left:4px}
+#dnBrief kbd{font-family:var(--font-disp);font-size:12px;background:#fff;color:#241d38;
+  border-radius:5px;padding:1px 7px;border-bottom:2px solid #9a91b8}
+#dnBrief .dn-note{font-size:13px}
+#dnBrief .row{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+#dnBrief .dn-lang{position:absolute;right:18px;top:18px}
+#dnBrief .dn-lang .dn-btn{background:var(--panel2);color:var(--text);border-color:var(--line);font-size:12px}
+
+.dn-sorry{position:fixed;inset:0;display:grid;place-content:center;gap:10px;text-align:center;
+  font-family:var(--font,system-ui);color:var(--dn-ink);background:var(--dn-paper);padding:24px;z-index:99}
+.dn-sorry b{font-family:var(--font-disp,inherit);font-size:20px;letter-spacing:2px}
+.dn-sorry small{font-size:13px;max-width:34ch}
+
+@media (max-width:700px){
+  #dnBrief .dn-lang{position:static;margin:-6px 0 10px;text-align:right}
+  #dnScore{font-size:16px}
+  .dn-btn{padding:7px 10px;font-size:12px}
+}
+</style>
+</head>
+<body>
+<canvas id="view"></canvas>
+
+<div id="dino">
+  <div id="dnTop">
+    <button class="dn-btn" id="dnOpen">▦ BLOCKS <small>C</small></button>
+    <button class="dn-btn" id="dnRun">▶ RUN</button>
+    <button class="dn-btn" id="dnHelp" aria-label="Help">?</button>
+    <button class="dn-btn" id="dnSound" aria-label="Sound">🔊</button>
+    <button class="dn-btn" id="dnLang">🌐 Español</button>
+    <button class="dn-btn" id="dnReset" aria-label="Reset">↺</button>
+  </div>
+  <div id="dnScore"></div>
+  <div id="dnMsg" class="hidden"></div>
+</div>
+
+<div id="dnBrief"><div class="card"></div></div>
+
+<div id="coder" class="hidden">
+  <div id="cBar"></div>
+  <div id="cObj"></div>
+  <div id="cCoach" class="hidden"></div>
+  <div id="tutor" class="hidden"></div>
+  <div id="cPal"></div>
+  <div id="cScript"></div>
+</div>
+
+<script src="lib/three.classic.js?v=1"></script>
+<script src="strings.js?v=1"></script>
+<script src="blocks.js?v=1"></script>
+<script src="vm.js?v=1"></script>
+<script src="coder.js?v=1"></script>
+<script src="costumes.js?v=1"></script>
+<script src="dino.js?v=1"></script>
+<script src="boot.js?v=1"></script>
+</body>
+</html>
