@@ -14,7 +14,7 @@
      ===================================================================== -->
 <title>Dino Run — built out of blocks</title>
 <meta name="description" content="The dinosaur runner game, and every rule of it is a block you can open and change.">
-<link rel="stylesheet" href="app.css?v=7">
+<link rel="stylesheet" href="app.css?v=8">
 <style>
 @font-face{font-family:'Space Mono';src:url('fonts/spacemono-700.woff2') format('woff2');
   font-weight:700;font-style:normal;font-display:swap}
@@ -67,6 +67,14 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--dn-paper)}
 #dnTeacher{position:absolute;left:14px;bottom:14px;padding:6px 12px;background:#fff;color:#9a5a00;
   border:2px solid #9a5a00;border-radius:10px;font-family:var(--font-disp);font-size:12px;letter-spacing:1px}
 #dino.coding #dnTeacher{display:none}
+
+/* IF … ELSE, drawn so it cannot be mistaken for a plain if: on the shelf
+   the else sits on its own line under the if, and in a script the else is
+   a band in the block's own colour rather than a whisper of grey text */
+#cPal .cblk.k-c2 .cpelse{flex-basis:100%;margin-top:2px;padding:2px 0 0 12px;
+  border-top:2px dashed rgba(36,29,56,.35)}
+#coder .celse{display:inline-block;background:var(--a);color:#241d38;font-weight:bold;
+  font-size:12px;border-radius:6px;padding:2px 10px;margin:2px 0}
 
 /* NIGHT, the way the original does it: the whole picture turns over */
 body.night{background:#0b0b0b}
@@ -139,13 +147,13 @@ body.night #view,body.night #dnScore,body.night #dnMsg{filter:invert(1)}
   <div id="cScript"></div>
 </div>
 
-<script src="lib/three.classic.js?v=7"></script>
-<script src="strings.js?v=7"></script>
-<script src="blocks.js?v=7"></script>
-<script src="vm.js?v=7"></script>
-<script src="coder.js?v=7"></script>
-<script src="costumes.js?v=7"></script>
-<script src="dino.js?v=7"></script>
-<script src="boot.js?v=7"></script>
+<script src="lib/three.classic.js?v=8"></script>
+<script src="strings.js?v=8"></script>
+<script src="blocks.js?v=8"></script>
+<script src="vm.js?v=8"></script>
+<script src="coder.js?v=8"></script>
+<script src="costumes.js?v=8"></script>
+<script src="dino.js?v=8"></script>
+<script src="boot.js?v=8"></script>
 </body>
 </html>

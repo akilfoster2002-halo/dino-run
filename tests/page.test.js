@@ -69,6 +69,12 @@ test('the globals the old engine provided are provided here', ()=>{
   assert.match(BOOT, /DINO\.start\(\)/, 'nothing starts the game');
 });
 
+test('on the shelf, `if then else` shows its else, so it does not look like `if then`', ()=>{
+  const coder=read('coder.js');
+  assert.match(coder, /bd\.kind==='c2'[^\n]*cpelse/, 'the shelf draws if-else exactly like if');
+  assert.match(PAGE, /\.cpelse\{/, 'the else on the shelf has no style, so it runs into the if');
+});
+
 test('the game runs on its own clock, not the screen\'s', ()=>{
   /* a 120 Hz screen must not make the cactuses twice as fast */
   assert.match(BOOT, /STEP\s*=\s*1\/60/, 'there is no fixed step');

@@ -246,11 +246,14 @@ window.CODER = (function(){
           <button class="bx" data-dellist="${esc(k)}">✕</button></div>`).join('');
   }
   function preview(bd){
-    return BLOCKS.parts(bd.label).map(seg=>{
+    const top = BLOCKS.parts(bd.label).map(seg=>{
       if(seg[0]!=='%') return esc(seg);
       const sp=bd.args[seg[1]];
       return `<i class="cslot">${sp&&sp.def!==undefined?esc(String(sp.def)):(sp&&sp.type==='bool'?'◇':'…')}</i>`;
     }).join('');
+    /* `if then` and `if then else` share a first line, so on the shelf the
+       second one would read exactly like the first. It shows its else. */
+    return bd.kind==='c2' ? top+`<span class="cpelse">${esc(t('else'))}</span>` : top;
   }
 
   /* ----------------------------------------------------------- add block */
@@ -461,7 +464,7 @@ window.CODER = (function(){
     let inner='';
     if(bd.kind==='c')  inner=`<div class="cmouth">${renderList(bk.body, path+'.b')}</div>`;
     if(bd.kind==='c2') inner=`<div class="cmouth">${renderList(bk.body, path+'.b')}</div>
-      <div class="celse">${t('else')}</div><div class="cmouth">${renderList(bk.body2, path+'.e')}</div>`;
+      <div class="celse" style="--a:${a}">${t('else')}</div><div class="cmouth">${renderList(bk.body2, path+'.e')}</div>`;
     return `<div class="cwrap">
       <div class="cblk k-${bd.kind} live${sel}" style="--a:${a}" data-blk="${path}">
         ${renderInline(bk)}<button class="bx" data-del="${path}">✕</button>
