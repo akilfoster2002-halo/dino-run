@@ -28,6 +28,7 @@ window.DINO = (function(){
 
   const DINO='Dino', CACTUS='Cactus', GROUND='Ground';
   const OLD_SAVES=['dino-run.scripts.v1','dino-run.scripts.v2','dino-run.scripts.v3'];
+  const NAME_KEY='dino-run.name';
   const HI_KEY='dino-run.hi.v1',
         LANG_KEY='dino-run.lang', SOUND_KEY='dino-run.sound';
   const teacher = typeof location!=='undefined' && /[?&]answer\b/.test(location.search);
@@ -165,6 +166,13 @@ window.DINO = (function(){
     'Start again from the beginning':'Empezar otra vez desde el principio',
     'Throw away your code and start again?':'¿Borrar tu código y empezar otra vez?',
     'Teacher view — answer key loaded':'Vista del maestro — respuesta cargada',
+    'DOWNLOAD SCRIPT':'DESCARGAR CÓDIGO',
+    'Save the code of all three objects as one PDF, to hand in':
+      'Guarda el código de los tres objetos en un solo PDF para entregarlo',
+    'Your name, for the top of the page:':'Tu nombre, para la parte de arriba de la página:',
+    'Block code':'Código de bloques',
+    'Student:':'Estudiante:','Date:':'Fecha:','High score:':'Récord:',
+    '(no name)':'(sin nombre)','(no blocks yet)':'(todavía no hay bloques)',
     'Press <b>SPACE</b> to play':'Presiona <b>SPACE</b> (espacio) para jugar',
     'GAME OVER':'FIN DEL JUEGO',
     '<b>SPACE</b> to play again':'<b>SPACE</b> (espacio) para jugar otra vez',
@@ -313,6 +321,131 @@ window.DINO = (function(){
     wasRunning=running;
   }
 
+  /* ============================================= the code, as a PDF
+     WHAT A STUDENT HANDS IN: every object's blocks in ONE file — the
+     Dino, the Cactus and the Ground, each under its own heading, written
+     out as text, one block to a line and indented the way they nest,
+     under their name, the date and their high score. It can be saved at
+     any point, so a half-finished game can be handed in as it stands.
+
+     THE PDF IS WRITTEN HERE, by hand, the way Asteroid Dodge does it. The
+     folder runs with no network and no install, and a PDF library off a
+     CDN would break that on the first lab machine without internet. Text
+     in Courier is the simplest PDF there is: a few objects, a content
+     stream per page, and a table of byte offsets at the end. Courier has
+     no accents, so Spanish headings lose theirs (Código → Codigo). */
+  const ASCII = str => String(str==null?'':str).normalize('NFD').replace(/[̀-ͯ]/g,'')
+    .replace(/▶ */g,'').replace(/[−–—]/g,'-').replace(/×/g,'*').replace(/÷/g,'/')
+    .replace(/[‘’]/g,"'").replace(/[“”]/g,'"').replace(/…/g,'...')
+    .replace(/[^\x20-\x7e]/g,'?');
+  function inline(bk){
+    const bd=window.BLOCKS && BLOCKS.of(bk.op); if(!bd) return bk.op;
+    return BLOCKS.parts(bd.label).map(seg=>{
+      if(seg[0]!=='%') return seg;
+      const k=seg[1], sp=bd.args[k]||{}, v=(bk.args||{})[k];
+      if(v && typeof v==='object' && v.op){
+        const kd=(BLOCKS.of(v.op)||{}).kind;
+        return kd==='bool' ? '<'+inline(v)+'>' : '('+inline(v)+')';
+      }
+      if(sp.type==='bool') return '< >';
+      if(sp.type==='num' || sp.type==='str') return '('+(v==null?'':v)+')';
+      return '['+(v==null?'':v)+']';
+    }).join('');
+  }
+  function lines(list, depth, out){
+    const pad='    '.repeat(depth);
+    (list||[]).forEach(bk=>{
+      out.push(pad+inline(bk));
+      const kd=(BLOCKS.of(bk.op)||{}).kind;
+      if(kd==='c' || kd==='c2'){
+        lines(bk.body, depth+1, out);
+        if(kd==='c2'){ out.push(pad+'else'); lines(bk.body2, depth+1, out); }
+        out.push(pad+'end');
+      }
+    });
+    return out;
+  }
+  /* one object's scripts as lines of text, a blank line between scripts */
+  function scriptText(name){
+    const a=actor(name), out=[];
+    (a && a.scripts || []).forEach((sc,i)=>{
+      if(i) out.push('');
+      if(sc.hat){ out.push(inline(sc.hat)); lines(sc.body, 1, out); }
+      else lines(sc.body, 0, out);
+    });
+    return out.length ? out : [T('(no blocks yet)')];
+  }
+  /* pages of Courier, a bold line where asked */
+  function pdf(rows){
+    const W=612, H=792, M=54, LH=13, COLS=84, PER=Math.floor((H-2*M)/LH);
+    const wrapped=[];
+    rows.forEach(r=>{
+      let t=ASCII(r.t), lead=(t.match(/^ */)||[''])[0]+'      ';
+      if(!t.length){ wrapped.push({ t:'', b:r.b }); return; }
+      while(t.length>COLS){ wrapped.push({ t:t.slice(0,COLS), b:r.b }); t=lead+t.slice(COLS); }
+      wrapped.push({ t, b:r.b });
+    });
+    const pages=[];
+    for(let i=0;i<wrapped.length;i+=PER) pages.push(wrapped.slice(i,i+PER));
+    const esc=t=>t.replace(/\\/g,'\\\\').replace(/\(/g,'\\(').replace(/\)/g,'\\)');
+    const objs=[];                                   // index 0 is object 1
+    objs[0]='<< /Type /Catalog /Pages 2 0 R >>';
+    objs[2]='<< /Type /Font /Subtype /Type1 /BaseFont /Courier >>';
+    objs[3]='<< /Type /Font /Subtype /Type1 /BaseFont /Courier-Bold >>';
+    const kids=[];
+    pages.forEach((pg,n)=>{
+      const pageNo=6+n*2, streamNo=pageNo+1;   // 1-4 fonts and tree, 5 is Info
+      let body='BT\n'+LH+' TL\n'+M+' '+(H-M)+' Td\n';
+      pg.forEach(r=>{ body+=(r.b?'/F2':'/F1')+' 10 Tf\n('+esc(r.t)+') Tj T*\n'; });
+      body+='/F1 8 Tf\nET\nBT /F1 8 Tf '+(W-M-60)+' '+(M/2)+' Td (page '+(n+1)+' of '+pages.length+') Tj ET\n';
+      objs[pageNo-1]='<< /Type /Page /Parent 2 0 R /MediaBox [0 0 '+W+' '+H+'] '+
+        '/Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents '+streamNo+' 0 R >>';
+      objs[streamNo-1]='<< /Length '+body.length+' >>\nstream\n'+body+'endstream';
+      kids.push(pageNo+' 0 R');
+    });
+    objs[1]='<< /Type /Pages /Kids ['+kids.join(' ')+'] /Count '+pages.length+' >>';
+    objs[4]='<< /Producer (Dino Run) >>';
+    let out='%PDF-1.4\n'; const at=[];
+    objs.forEach((o,i)=>{ at[i]=out.length; out+=(i+1)+' 0 obj\n'+o+'\nendobj\n'; });
+    const xref=out.length;
+    out+='xref\n0 '+(objs.length+1)+'\n0000000000 65535 f \n'+
+      at.map(o=>String(o).padStart(10,'0')+' 00000 n \n').join('')+
+      'trailer\n<< /Size '+(objs.length+1)+' /Root 1 0 R /Info 5 0 R >>\nstartxref\n'+xref+'\n%%EOF\n';
+    return out;
+  }
+  /* what goes on the page: a header, then each object in turn */
+  function handIn(name){
+    const labels=[T('Student:'), T('Date:'), T('High score:')];
+    const w=Math.max(...labels.map(l=>l.length))+2;
+    const rows=[
+      { t:'DINO RUN - '+T('Block code'), b:true },
+      { t:'' },
+      { t:labels[0].padEnd(w)+(name||T('(no name)')) },
+      { t:labels[1].padEnd(w)+new Date().toLocaleString(window.LANG==='es'?'es':'en') },
+      { t:labels[2].padEnd(w)+pad5(hi) }
+    ];
+    NAMES.forEach(n=>{
+      rows.push({ t:'' }, { t:'' }, { t:n.toUpperCase(), b:true }, { t:'' });
+      scriptText(n).forEach(t=>rows.push({ t }));
+    });
+    return rows;
+  }
+  function download(){
+    let name=''; try{ name=localStorage.getItem(NAME_KEY)||''; }catch(e){}
+    const typed=prompt(T('Your name, for the top of the page:'), name);
+    if(typed===null) return;                   // cancelled
+    name=typed.trim();
+    try{ localStorage.setItem(NAME_KEY, name); }catch(e){}
+    const blob=new Blob([pdf(handIn(name))], { type:'application/pdf' });
+    const a=document.createElement('a');
+    const slug=(name||'student').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'')
+      .replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')||'student';
+    a.href=URL.createObjectURL(blob);
+    a.download='dino-run-'+slug+'.pdf';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(a.href), 4000);
+  }
+
   /* ==================================================== the screen */
   const pad5 = n => String(Math.max(0,Math.floor(n))).padStart(5,'0').slice(-6);
   function board(dt){
@@ -362,6 +495,8 @@ window.DINO = (function(){
     if(snd){ snd.textContent = SND.on ? '🔊' : '🔇'; snd.title = T(SND.on ? 'Sound on' : 'Sound off'); }
     const help=$('#dnHelp'); if(help) help.title=T('Show the instructions again');
     const rst=$('#dnReset'); if(rst) rst.title=T('Start again from the beginning');
+    set('#dnPdf', '⤓ '+T('DOWNLOAD SCRIPT'));
+    const dl=$('#dnPdf'); if(dl) dl.title=T('Save the code of all three objects as one PDF, to hand in');
     const tb=$('#dnTeacher'); if(tb) tb.textContent=T('Teacher view — answer key loaded');
     brief(); message(); buttons();
   }
@@ -539,6 +674,7 @@ window.DINO = (function(){
     $('#dnSound').onclick=()=>{ SND.on=!SND.on; if(SND.on) SND.wake(); words(); };
     $('#dnLang').onclick=toggleLang;
     $('#dnReset').onclick=original;
+    $('#dnPdf').onclick=download;
     document.querySelectorAll('#dnTop .dn-btn').forEach(b=>b.addEventListener('click', ()=>b.blur()));
     let l='en'; try{ l=localStorage.getItem(LANG_KEY)||'en'; }catch(e){}
     setLang(l);
@@ -566,6 +702,7 @@ window.DINO = (function(){
   }
 
   return { start, step, draw, starter, answer, given, setLang,
+           scriptText, handIn, pdf, download,
            DINO, CACTUS, GROUND, CAST, PALETTE, SET,
            NUM:{ START_X, CACTUS_X, JUMP_Y, JUMP_T, SPEED, SCORE, SPAWN_X, GONE_X, TILE },
            get teacher(){ return teacher; },

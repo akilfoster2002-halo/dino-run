@@ -14,7 +14,7 @@
      ===================================================================== -->
 <title>Dino Run — built out of blocks</title>
 <meta name="description" content="The dinosaur runner game, and every rule of it is a block you can open and change.">
-<link rel="stylesheet" href="app.css?v=10">
+<link rel="stylesheet" href="app.css?v=11">
 <style>
 @font-face{font-family:'Space Mono';src:url('fonts/spacemono-700.woff2') format('woff2');
   font-weight:700;font-style:normal;font-display:swap}
@@ -45,7 +45,14 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--dn-paper)}
 .dn-btn small{color:var(--dn-dim);margin-left:6px;letter-spacing:1px}
 #dnRun{color:#1f7a3a;border-color:#1f7a3a}
 #dnRun.live{color:#b3261e;border-color:#b3261e}
-#dino.coding #dnTop{display:none}
+/* while the editor is open only the download button stays, so the code can
+   be handed in from wherever the student is — at the bottom, just right of
+   the block list (10 + 252 wide, 210 on a narrower screen) */
+#dino.coding #dnTop > :not(#dnPdf){display:none}
+#dino.coding #dnTop{top:auto;bottom:14px;left:274px}
+@media (max-width:1150px){ #dino.coding #dnTop{left:232px} }
+/* a narrow window leaves a narrow gap between the two panels: a smaller button fits it */
+@media (max-width:820px){ #dino.coding #dnPdf{font-size:11px;padding:6px 8px;letter-spacing:.5px} }
 
 #dnScore{position:absolute;right:16px;top:16px;font-family:'Space Mono',var(--font-disp),monospace;
   font-weight:700;font-size:22px;letter-spacing:2px;color:var(--dn-ink);white-space:pre;
@@ -130,6 +137,7 @@ body.night #view,body.night #dnScore,body.night #dnMsg{filter:invert(1)}
     <button class="dn-btn" id="dnSound" aria-label="Sound">🔊</button>
     <button class="dn-btn" id="dnLang">🌐 Español</button>
     <button class="dn-btn" id="dnReset" aria-label="Reset">↺</button>
+    <button class="dn-btn" id="dnPdf">⤓ DOWNLOAD SCRIPT</button>
   </div>
   <div id="dnScore"></div>
   <div id="dnMsg" class="hidden"></div>
@@ -147,13 +155,13 @@ body.night #view,body.night #dnScore,body.night #dnMsg{filter:invert(1)}
   <div id="cScript"></div>
 </div>
 
-<script src="lib/three.classic.js?v=10"></script>
-<script src="strings.js?v=10"></script>
-<script src="blocks.js?v=10"></script>
-<script src="vm.js?v=10"></script>
-<script src="coder.js?v=10"></script>
-<script src="costumes.js?v=10"></script>
-<script src="dino.js?v=10"></script>
-<script src="boot.js?v=10"></script>
+<script src="lib/three.classic.js?v=11"></script>
+<script src="strings.js?v=11"></script>
+<script src="blocks.js?v=11"></script>
+<script src="vm.js?v=11"></script>
+<script src="coder.js?v=11"></script>
+<script src="costumes.js?v=11"></script>
+<script src="dino.js?v=11"></script>
+<script src="boot.js?v=11"></script>
 </body>
 </html>

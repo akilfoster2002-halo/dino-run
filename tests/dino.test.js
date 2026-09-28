@@ -88,7 +88,7 @@ test('the scoreboard\'s variable is made ready, and it is the only one', ()=>{
 test('a refresh never brings code back: the room never saves the blocks', ()=>{
   const writes=[...DINOJS.matchAll(/localStorage\.setItem\(\s*([A-Z_]+)/g)].map(m=>m[1]);
   assert.ok(writes.length, 'the setItem calls could not be found');
-  writes.forEach(k=>assert.ok(['HI_KEY','LANG_KEY','SOUND_KEY'].includes(k), `the room saves ${k}`));
+  writes.forEach(k=>assert.ok(['HI_KEY','LANG_KEY','SOUND_KEY','NAME_KEY'].includes(k), `the room saves ${k}`));
   assert.ok(!/getItem\([^)]*scripts/.test(DINOJS), 'the room reads saved blocks back');
   assert.match(DINOJS, /teacher \? answer\(\) : starter\(\)/, 'a page load does not start from the empty code');
 });
@@ -125,6 +125,34 @@ test('cactus clones slide in, and a clone touching the Dino ends the game', ()=>
   assert.ok(most>=1, 'create a clone of myself made no copies');
   assert.strictEqual(d.VM.running, false, 'a clone ran into the Dino and the game kept going');
   assert.strictEqual(d.VM.actorByName('Cactus').visible, false, 'the hidden original showed itself');
+});
+
+test('one download holds every object\'s code: Dino, Cactus and Ground', ()=>{
+  const d=desert(5);                                   // the answer key, all three written
+  const text=Array.from(d.DINO.handIn('Ana Pérez')).map(r=>r.t);
+  const at=h=>text.indexOf(h);
+  assert.ok(text[0].startsWith('DINO RUN'), 'the page has no title');
+  assert.ok(text.some(t=>/Ana Pérez/.test(t)), 'the student\'s name is missing');
+  assert.ok(at('DINO')>0 && at('CACTUS')>at('DINO') && at('GROUND')>at('CACTUS'),
+    'the three objects are not all there, in order');
+  const cactus=text.slice(at('CACTUS'), at('GROUND')).join('\n');
+  assert.match(cactus, /if <touching \[Dino\] ?\?> then/, 'the Cactus\'s blocks are not written out');
+  assert.match(cactus, /^\s+stop \[all\]$/m, 'a block inside an if is not indented');
+  assert.match(text.slice(at('GROUND')).join('\n'), /change \[score\] by \(0\.2\)/, 'the Ground\'s blocks are not written out');
+  assert.match(d.DINO.pdf(d.DINO.handIn('Ana')), /\(when the game starts\) Tj/,
+    'the ▶ in a hat block should be dropped, not turned into a ?');
+});
+
+test('an object with no code says so, and the PDF is one well-formed file', ()=>{
+  const d=desert(6, 'starter');
+  const text=Array.from(d.DINO.handIn('')).map(r=>r.t);
+  assert.strictEqual(text.filter(t=>t==='(no blocks yet)').length, 2, 'the empty Dino and Cactus are not marked');
+  const file=d.DINO.pdf(d.DINO.handIn('José'));
+  assert.ok(file.startsWith('%PDF-1.4') && file.trimEnd().endsWith('%%EOF'), 'not a PDF');
+  assert.ok(/^[\x0a\x20-\x7e]*$/.test(file), 'the PDF has characters Courier cannot print');
+  assert.match(file, /Jose/, 'an accent should be dropped, not the letter');
+  const xref=+file.match(/startxref\n(\d+)/)[1];
+  assert.strictEqual(file.slice(xref, xref+4), 'xref', 'the byte offset of the table is wrong');
 });
 
 test('the answer key uses only blocks on the shelf, with every slot filled', ()=>{

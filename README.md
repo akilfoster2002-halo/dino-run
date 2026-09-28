@@ -24,8 +24,8 @@ start card lists what to build, in English and Spanish:
 A `score` variable is made ready (the editor here has no "make a variable" button), and the
 scoreboard in the corner shows it. The block shelf holds only what the game needs.
 
-Code lasts until the page is refreshed. **↺** also puts the page back the way it opened. Only the high score, the language and
-the sound setting are remembered by the browser.
+Code lasts until the page is refreshed. **↺** also puts the page back the way it opened. Only the high score, the language, the
+sound setting and the name typed for the PDF are remembered by the browser.
 
 **Teacher answer key:** open the page with `?answer` on the end, e.g.
 https://dino-run-sepia.vercel.app/?answer. It loads the finished game (28 blocks) and says
@@ -42,6 +42,11 @@ blocks.
   buttons. Block words stay in English because they are the code, and key names stay as printed on the
   keyboard (`SPACE`). The choice is remembered per machine.
 - **🔊 / 🔇** switches the three beeps (jump, every 100, crash). They are synthesised; no audio files.
+- **⤓ DOWNLOAD SCRIPT** saves the code of all three objects — Dino, Cactus and Ground, each under its
+  own heading — as **one PDF**, with the student's name, the date and the high score at the top, to
+  hand in (e.g. on Google Classroom). It asks for a name first and stays on screen while the editor
+  is open, so a half-finished game can be handed in too. The PDF is written by the page itself, with
+  no library and no network.
 - On a touch screen, a tap on the desert is SPACE.
 
 ## Play it online
@@ -77,7 +82,7 @@ python3 -m http.server 8796
 Then open http://localhost:8796.
 
 ```bash
-npm test        # 28 tests, no browser needed
+npm test        # 32 tests, no browser needed
 npm run bump    # moves ?v= on every tag so caches cannot serve half a build
 ```
 
