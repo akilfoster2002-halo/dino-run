@@ -52,7 +52,7 @@ test('every ?v= cache tag is the same number', ()=>{
 
 test('every element the room and the editor need is on the page', ()=>{
   const ids=new Set([...PAGE.matchAll(/id="([A-Za-z][\w-]*)"/g)].map(m=>m[1]));
-  ['view','dino','dnTop','dnOpen','dnRun','dnHelp','dnSound','dnLang','dnReset','dnScore','dnMsg','dnBrief',
+  ['view','dino','dnTop','dnOpen','dnRun','dnHelp','dnSound','dnLang','dnReset','dnScore','dnMsg','dnTeacher','dnBrief',
    'coder','cBar','cObj','cPal','cScript']
     .forEach(id=>assert.ok(ids.has(id), `#${id} is missing — whatever reaches for it will throw`));
   const dino=read('dino.js');
@@ -79,7 +79,7 @@ test('every word on the page has a Spanish translation', ()=>{
   const src=read('dino.js');
   const es=src.slice(src.indexOf('Object.assign(window.ES'), src.indexOf('});', src.indexOf('Object.assign(window.ES')));
   const asked=[...src.matchAll(/\bT\('((?:[^'\\]|\\.)+)'/g)].map(m=>m[1]);
-  const tries=src.slice(src.indexOf('const tries=['), src.indexOf('];', src.indexOf('const tries=[')));
+  const tries=src.slice(src.indexOf('const steps=['), src.indexOf('];', src.indexOf('const steps=[')));
   const listed=[...tries.matchAll(/'((?:[^'\\]|\\.)+)'/g)].map(m=>m[1]);
   const words=[...asked, ...listed];
   assert.ok(words.length > 20, 'the English strings could not be found');

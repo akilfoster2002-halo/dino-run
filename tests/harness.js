@@ -46,7 +46,7 @@ function seeded(seed){
   return M;
 }
 
-function desert(seed){
+function desert(seed, code){
   let now=0;
   const ctx=vm.createContext({
     console, Math:seeded(seed||1),
@@ -69,14 +69,15 @@ function desert(seed){
   const root=new ctx.THREE.Group();
   VM.useScratch(); VM.enter(root);
   VM.project.actors.slice().forEach(a=>VM.delActor(a));
-  const N=DINO.NUM, S=DINO.scripts();
+  /* the answer key by default; 'starter' is what a student is handed */
+  const S = code==='starter' ? DINO.starter() : DINO.answer();
   DINO.CAST.forEach(c=>{
     const a=VM.addActor({ name:c.name, shape:c.shape, size:1 });
-    a.x=c.x; a.z=-c.y; a.y=1; a.visible=c.visible; a.vars=Object.assign({}, c.vars);
+    a.x=c.x; a.z=-c.y; a.y=1; a.visible=c.visible!==false; a.vars={};
     a.scripts=JSON.parse(JSON.stringify(S[c.name]));
     VM.sync(a); VM.setHome(a);
   });
-  VM.project.vars.speed=N.SPEED; VM.project.vars.score=0; VM.project.vars.next=0;
+  VM.project.vars.score=0;
 
   let t=0;
   function step(){
@@ -84,8 +85,7 @@ function desert(seed){
     now+=1000/60; t+=1/60;
   }
   const dino = () => VM.actorByName(DINO.DINO);
-  const names = DINO.OBSTACLES.map(o=>o.name);
-  const obstacles = () => VM.project.actors.filter(a=>names.includes(a.name) && a.isClone && a.visible);
+  const obstacles = () => VM.project.actors.filter(a=>a.name===DINO.CACTUS && a.visible);
   return { ctx, VM, COSTUMES, DINO, BLOCKS, G:ctx.G, step, dino, obstacles,
            get seconds(){ return t; } };
 }
@@ -102,7 +102,7 @@ function player(d, lead){
   });
   d.G.keys.Space=false; d.G.keys.ArrowDown=false;
   if(!next) return;
-  const sp=+d.VM.project.vars.speed, bird=next.shape==='desert/bird', y=-next.z;
+  const sp=+d.VM.project.vars.speed || d.DINO.NUM.SPEED, bird=next.shape==='desert/bird', y=-next.z;
   if(bird && y>2) return;
   if(bird && y>1){ if(gap<sp*10) d.G.keys.ArrowDown=true; return; }
   if(gap<sp*lead) d.G.keys.Space=true;

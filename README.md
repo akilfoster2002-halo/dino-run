@@ -1,43 +1,45 @@
-# Dino Run — built out of blocks
+# Dino Run — build it yourself, out of blocks
 
-The dinosaur runner game, and every rule of it is a block you can open and change.
+The dinosaur runner game, as a blank page for students to build.
 
-Open the page and press **SPACE**. The Dino runs; jump the cactuses with **SPACE**, duck the bird
-with **↓**. It gets faster the longer you last, turns to night at 700, and ends when you hit
-something. Then press **C** (or **▦ BLOCKS**, or click the Dino, a cactus or the ground) and read the
-blocks that just did all of that.
-
-The scripts are kept as short as they can be and still be the game. There are six objects:
+Every time the page opens (and every refresh) there are three objects and **no code**:
 
 | | |
 |---|---|
-| **Dino** | `when space key pressed` → if `y position = 0`: glide up to y 6 in 0.35 s, glide back down to y 0. And forever: if ↓ is held, the ducking picture, otherwise the Dino |
-| **Small Cactus**, **Big Cactus**, **Cactus Group**, **Bird** | the same two scripts each. The hidden original waits until `next` is its number (1, 2, 3, 4), sets `next` back to 0 and makes a copy of itself. The copy shows, slides left at `speed`, runs `stop all` if it touches the Dino, and deletes itself off the screen. The copy starts where the original waits (x = 20; the Bird at head height, y = 1.3), so it needs no `go to` |
-| **Ground** | sets `speed` to 0.3 and `score` to 0, then forever: slides left, jumps back every 32 squares, adds 0.2 to `score` and 0.0001 to `speed`. Its second script sets `next` to a random 1–4 every 1–2.5 s, which decides which obstacle comes out and keeps two from coming out on top of each other |
+| **Dino** | standing on the ground at x = −12 |
+| **Cactus** | standing on the ground at x = 10 |
+| **Ground** | the desert line |
 
-The whole game is 112 blocks, and only three variables: `speed`, `score` and `next`.
+Students click an object (or press **C**) and write its blocks, then press **SPACE** to run them. The
+start card lists what to build, in English and Spanish:
+
+1. **Ground:** slide left `forever` with `change x by -0.3`; when `x position < -32`,
+   `change x by 32` so it never runs out.
+2. **Cactus:** slide left the same way; when `x position < -20`, `set x to 20` so it comes back.
+3. **Dino:** `when space key pressed`, `glide` up to `y 6`, then `glide` back down to `y 0`.
+4. **Game over:** on the Cactus, `if touching Dino?` then `stop all`.
+5. **Score:** on the Ground, `change score by 0.2` inside the `forever`.
+
+A `score` variable is made ready (the editor here has no "make a variable" button), and the
+scoreboard in the corner shows it. The block shelf holds only what the game needs.
+
+Code lasts until the page is refreshed. **↺** also clears it. Only the high score, the language and
+the sound setting are remembered by the browser.
+
+**Teacher answer key:** open the page with `?answer` on the end, e.g.
+https://dino-run-sepia.vercel.app/?answer. It loads the finished game (28 blocks) and says
+"Teacher view" in the corner. Nothing about it is saved, and students never see it unless they add
+`?answer` themselves.
 
 The room (`dino.js`) owns only the stage: the sky, clouds, camera, sounds, high score and night mode.
-It never moves the Dino, never ends the game and never decides a hit. If you cannot find a rule in the
-blocks, it is not in the game.
-
-## Things to try (also on the start card, in English and Spanish)
-
-- **Moon jump:** on the Dino, change the `y 6` in the first `glide` to `9`.
-- **Quick jump:** change the `0.35` in both `glide` blocks to `0.2`.
-- **Fast start:** on the Ground, change `set speed to 0.3` to `0.6`.
-- **Only birds:** on the Ground, change `pick random 1 to 4` to `4 to 4`.
-- **Can't lose?** Take `stop all` out of the Bird. What happens?
-
-Changes to the blocks last until the page is refreshed: every page load is the original game, and
-**↺** puts the original back without refreshing. Only the high score, the language and the sound
-setting are remembered by the browser.
+It never moves anything, never ends the game and never decides a hit — that is all the students'
+blocks.
 
 ## Language, sound, touch
 
 - **🌐 Español / English** switches the start card, buttons and messages, plus the editor's own
   buttons. Block words stay in English because they are the code, and key names stay as printed on the
-  keyboard (`SPACE`, `↓`). The choice is remembered per machine.
+  keyboard (`SPACE`). The choice is remembered per machine.
 - **🔊 / 🔇** switches the three beeps (jump, every 100, crash). They are synthesised; no audio files.
 - On a touch screen, a tap on the desert is SPACE.
 
@@ -62,14 +64,14 @@ python3 -m http.server 8796
 Then open http://localhost:8796.
 
 ```bash
-npm test        # 28 tests, no browser needed
+npm test        # 25 tests, no browser needed
 npm run bump    # moves ?v= on every tag so caches cannot serve half a build
 ```
 
-The tests read the three scripts block by block against the rules above, then **play the game
-headless**: the real VM runs the real scripts with a stand-in renderer and a 60 Hz clock. A player who
-jumps on time must survive two minutes, with all four obstacles coming out and never two in the same
-place; one who does nothing, or jumps far too early or too late, must lose.
+The tests check that every page load starts with no code and that nothing moves until a student
+writes it, then **play the teacher's answer key headless**: the real VM runs the real blocks with a
+stand-in renderer and a 60 Hz clock. A player who jumps on time must survive a minute; one who does
+nothing, or jumps far too early or too late, must lose.
 
 ## How it is built
 
@@ -83,7 +85,7 @@ Dodge:
 | `coder.js` | the drag-and-drop block editor |
 | `strings.js`, `app.css`, `fonts/`, `lib/three.classic.js` | text, styles, typefaces, renderer |
 | **`costumes.js`** | the pixel art (Dino, ducking, crashed, cactuses, bird, ground, cloud), one still picture each, with the same interface as 0.2a's costume module |
-| **`dino.js`** | the room: the six objects and their scripts, the camera, HUD, sounds, saving, Spanish |
+| **`dino.js`** | the room: the three objects, the answer key, the camera, HUD, sounds, Spanish |
 | **`boot.js`** | renderer, keyboard and frame loop, stepping the game at a fixed 60 per second |
 
 The framework files were copied from the Asteroid Dodge folder (which carries the fix that makes
@@ -109,7 +111,6 @@ reach here.**
   and watch it without closing anything.
 
 Every character is **one still picture**: no running legs, blinking or flapping. A costume only changes
-when a block says `become a [...]` (ducking, and crashing), so everything on screen is something a
-student can find in the code.
+when a block says `become a [...]`.
 
 The art is drawn fresh for this game in the style of the original; it is not Google's sprite sheet.
