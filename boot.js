@@ -6,12 +6,12 @@
    camera, somewhere to read the keyboard and something calling them.
    Everything that is the game is in dino.js.
 
-   ONE DIFFERENCE, AND IT IS ABOUT GRAVITY. The VM runs a `forever` once a
-   frame, so on a 120 Hz screen every loop in the game runs twice as
-   often — and a jump written as "lose 0.03 of speed every frame" falls
-   twice as fast. Pong gets away with that; a runner does not, because the
-   whole game is whether you clear the cactus. So the game is stepped on
-   its own clock, sixty times a second, however often the screen draws.
+   ONE DIFFERENCE. The VM runs a `forever` once a frame, so on a 120 Hz
+   screen every loop in the game runs twice as often — the cactuses slide
+   twice as fast while the Dino's glide, which is timed in seconds, does
+   not. Pong gets away with that; a runner does not, because the whole
+   game is whether you clear the cactus. So the game is stepped on its own
+   clock, sixty times a second, however often the screen draws.
    ===================================================================== */
 (function(){
   const $ = s => document.querySelector(s);

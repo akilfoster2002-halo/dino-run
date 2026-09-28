@@ -2,18 +2,20 @@
 
 The dinosaur runner game, and every rule of it is a block you can open and change.
 
-Open the page and press **SPACE**. The Dino runs; jump the cactuses with **SPACE** or **↑**, duck
-the birds with **↓**. It gets faster the longer you last, turns to night at 700, and ends when you
-hit something. Then press **C** (or **▦ BLOCKS**, or click the Dino, a cactus or the ground) and
-read the blocks that just did all of that.
+Open the page and press **SPACE**. The Dino runs; jump the cactuses with **SPACE**, duck the bird
+with **↓**. It gets faster the longer you last, turns to night at 700, and ends when you hit
+something. Then press **C** (or **▦ BLOCKS**, or click the Dino, a cactus or the ground) and read the
+blocks that just did all of that.
 
-There are six objects and nothing else:
+The scripts are kept as short as they can be and still be the game. There are six objects:
 
 | | |
 |---|---|
-| **Dino** | jumps when SPACE/↑ is pressed *and* it is on the ground, falls because `jump` shrinks by 0.03 every frame, lands, ducks on ↓, and has one `if touching [...]` per obstacle that puts on the crashed picture and runs `stop all` |
-| **Small Cactus**, **Big Cactus**, **Cactus Group**, **Bird** | one object each, with the same two short scripts: the object hides, waits until `next` is its number (1, 2, 3, 4), sets `next` back to 0 and makes a copy of itself; the copy starts at x = 20, slides left at `speed` and deletes itself. The Bird only makes a copy once `speed > 0.4`, and its copy flies at height 0, 1.3 or 2.6 |
-| **Ground** | sets `speed` to `0.3 + timer ÷ 300` (capped at 0.65), scrolls left and jumps back every 32 squares, and adds `speed ÷ 2` to `score` every frame. Its second script picks `next` (a random 1–4) every 0.8–1.8 s, which is what decides which obstacle comes out and keeps two from coming out on top of each other |
+| **Dino** | `when space key pressed` → if `y position = 0`: glide up to y 6 in 0.35 s, glide back down to y 0. And forever: if ↓ is held, the ducking picture, otherwise the Dino |
+| **Small Cactus**, **Big Cactus**, **Cactus Group**, **Bird** | the same two scripts each. The hidden original waits until `next` is its number (1, 2, 3, 4), sets `next` back to 0 and makes a copy of itself. The copy shows, slides left at `speed`, runs `stop all` if it touches the Dino, and deletes itself off the screen. The copy starts where the original waits (x = 20; the Bird at head height, y = 1.3), so it needs no `go to` |
+| **Ground** | sets `speed` to 0.3 and `score` to 0, then forever: slides left, jumps back every 32 squares, adds 0.2 to `score` and 0.0001 to `speed`. Its second script sets `next` to a random 1–4 every 1–2.5 s, which decides which obstacle comes out and keeps two from coming out on top of each other |
+
+The whole game is 112 blocks, and only three variables: `speed`, `score` and `next`.
 
 The room (`dino.js`) owns only the stage: the sky, clouds, camera, sounds, high score and night mode.
 It never moves the Dino, never ends the game and never decides a hit. If you cannot find a rule in the
@@ -21,21 +23,21 @@ blocks, it is not in the game.
 
 ## Things to try (also on the start card, in English and Spanish)
 
-- **Moon jump:** on the Dino, make `set jump to 0.5` bigger.
-- **Heavy gravity:** change `change jump by -0.03` to `-0.06`.
-- **Fast start:** on the Ground, change the `0.3` in `set speed`.
-- **Birds now:** on the Bird, change `speed > 0.4` to `speed > 0`.
-- **Can't lose?** Take the `stop all` blocks out of the Dino.
+- **Moon jump:** on the Dino, change the `y 6` in the first `glide` to `9`.
+- **Quick jump:** change the `0.35` in both `glide` blocks to `0.2`.
+- **Fast start:** on the Ground, change `set speed to 0.3` to `0.6`.
+- **Only birds:** on the Ground, change `pick random 1 to 4` to `4 to 4`.
+- **Can't lose?** Take `stop all` out of the Bird. What happens?
 
-Changes are kept in the browser (`localStorage`); **↺** puts the original game back. A browser only
-stores the scripts once they differ from the originals, so an update to the game still reaches
-students who never changed anything.
+Changes to the blocks last until the page is refreshed: every page load is the original game, and
+**↺** puts the original back without refreshing. Only the high score, the language and the sound
+setting are remembered by the browser.
 
 ## Language, sound, touch
 
 - **🌐 Español / English** switches the start card, buttons and messages, plus the editor's own
   buttons. Block words stay in English because they are the code, and key names stay as printed on the
-  keyboard (`SPACE`, `↑`, `↓`). The choice is remembered per machine.
+  keyboard (`SPACE`, `↓`). The choice is remembered per machine.
 - **🔊 / 🔇** switches the three beeps (jump, every 100, crash). They are synthesised; no audio files.
 - On a touch screen, a tap on the desert is SPACE.
 
@@ -60,14 +62,14 @@ python3 -m http.server 8796
 Then open http://localhost:8796.
 
 ```bash
-npm test        # 30 tests, no browser needed
+npm test        # 28 tests, no browser needed
 npm run bump    # moves ?v= on every tag so caches cannot serve half a build
 ```
 
 The tests read the three scripts block by block against the rules above, then **play the game
 headless**: the real VM runs the real scripts with a stand-in renderer and a 60 Hz clock. A player who
-jumps on time must survive two minutes to top speed, with all four obstacles coming out and never two
-in the same place; one who does nothing, or jumps far too early or too late, must lose.
+jumps on time must survive two minutes, with all four obstacles coming out and never two in the same
+place; one who does nothing, or jumps far too early or too late, must lose.
 
 ## How it is built
 
@@ -99,8 +101,9 @@ reach here.**
 
 ### Two things `boot.js` does that Pong's does not
 
-- **A fixed clock.** The VM runs each `forever` once per frame, so on a 120 Hz screen gravity would be
-  twice as strong. The game is stepped at 60 per second whatever the screen does.
+- **A fixed clock.** The VM runs each `forever` once per frame, so on a 120 Hz screen the cactuses,
+  the ground and the speed-up would all run twice as fast. The game is stepped at 60 per second
+  whatever the screen does.
 - **The camera frames a window of the world**, not the objects. With the editor open, that window is
   fitted into the gap between the block list and the script, so you can change a number, press SPACE
   and watch it without closing anything.

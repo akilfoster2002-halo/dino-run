@@ -70,7 +70,7 @@ test('the globals the old engine provided are provided here', ()=>{
 });
 
 test('the game runs on its own clock, not the screen\'s', ()=>{
-  /* a 120 Hz screen must not make gravity twice as strong */
+  /* a 120 Hz screen must not make the cactuses twice as fast */
   assert.match(BOOT, /STEP\s*=\s*1\/60/, 'there is no fixed step');
   assert.match(BOOT, /DINO\.step\(STEP\)/, 'the game is not stepped on it');
 });

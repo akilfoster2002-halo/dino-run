@@ -2,8 +2,8 @@
    DINO RUN — a finished game, and nothing hidden behind it.
 
    The one claim the room makes is the one Pong makes: EVERY RULE OF THE
-   GAME IS A BLOCK. The jump, gravity, landing, ducking, the crash, what
-   comes next, how fast it comes and the score are all on a shelf a
+   GAME IS A BLOCK. The jump, ducking, the crash, what comes next, how
+   fast it comes and the score are all on a shelf a
    student can open. If one of them moves out of the blocks and back into
    JavaScript, something here goes red.
 
@@ -73,31 +73,35 @@ test('every costume the game asks for is one the costume shelf has', ()=>{
 });
 
 /* ============================================ the rules, one at a time */
-test('the Dino jumps: SPACE or ↑ sets `jump`, but only on the ground', ()=>{
-  const loop=loopOf(hat(DINO.DINO,'event.flag'));
-  const ground=loop.body.find(b=>b.op==='ctrl.if' && has(b.args.c,'motion.pos') && b.args.c.op==='op.eq');
-  assert.ok(ground, 'nothing asks whether the Dino is on the ground, so it can jump in mid-air for ever');
-  const press=all(ground.body).find(b=>b.op==='ctrl.if' && has(b.args.c,'sense.key'));
-  assert.ok(press, 'no key makes it jump');
-  const keys=all([press.args.c]).filter(b=>b.op==='sense.key').map(b=>b.args.k);
-  assert.deepStrictEqual(keys.sort(), ['space','up']);
-  assert.ok(press.body.some(b=>b.op==='data.set' && b.args.v==='jump' && b.args.n>0), 'a jump that sets no speed');
+test('the code is short: a handful of blocks per object, three shared variables', ()=>{
+  /* every block counts, hats and the little rounded ones inside slots
+     too; these are the sizes the game was simplified down to */
+  const size = n => blocks(n).length;
+  assert.ok(size(DINO.DINO) <= 13, `the Dino has grown to ${size(DINO.DINO)} blocks`);
+  OBST.forEach(o=>assert.ok(size(o.name) <= 20, `${o.name} has grown to ${size(o.name)} blocks`));
+  assert.ok(size(DINO.GROUND) <= 19, `the Ground has grown to ${size(DINO.GROUND)} blocks`);
+  const vars=new Set(NAMES.flatMap(n=>blocks(n).filter(b=>/^data\./.test(b.op)).map(b=>b.args.v)));
+  assert.deepStrictEqual([...vars].sort(), ['next','score','speed']);
 });
 
-test('gravity is a block: `jump` gets smaller every frame and moves the Dino', ()=>{
-  const loop=loopOf(hat(DINO.DINO,'event.flag'));
-  const move=loop.body.find(b=>b.op==='motion.changeBy' && b.args.a==='y');
-  assert.ok(move && move.args.n.op==='data.get' && move.args.n.args.v==='jump', 'the Dino is not moved by `jump`');
-  const g=loop.body.find(b=>b.op==='data.change' && b.args.v==='jump');
-  assert.ok(g && g.args.n<0, 'nothing pulls it back down');
+test('the Dino jumps on SPACE: glide up, glide back down — only from the ground', ()=>{
+  const jump=hat(DINO.DINO,'event.key');
+  assert.ok(jump && jump.hat.args.k==='space', 'SPACE does nothing');
+  const ground=jump.body.find(b=>b.op==='ctrl.if' && b.args.c.op==='op.eq' && has(b.args.c,'motion.pos'));
+  assert.ok(ground, 'nothing asks whether the Dino is on the ground, so it can jump in mid-air');
+  const glides=ground.body.filter(b=>b.op==='motion.glide');
+  assert.strictEqual(glides.length, 2, 'a jump is one glide up and one glide down');
+  assert.ok(glides[0].args.y>0, 'the first glide does not go up');
+  assert.strictEqual(glides[1].args.y, 0, 'the second glide does not land on the ground');
+  assert.strictEqual(glides[0].args.x, glides[1].args.x, 'the Dino drifts sideways while it jumps');
 });
 
-test('the Dino lands: below the ground it is put back on it', ()=>{
+test('↓ ducks', ()=>{
   const loop=loopOf(hat(DINO.DINO,'event.flag'));
-  const land=loop.body.find(b=>b.op==='ctrl.if' && b.args.c.op==='op.lt' && has(b.args.c,'motion.pos'));
-  assert.ok(land, 'nothing notices the Dino has gone through the floor');
-  assert.ok(land.body.some(b=>b.op==='motion.setTo' && b.args.a==='y' && b.args.n===0));
-  assert.ok(land.body.some(b=>b.op==='data.set' && b.args.v==='jump' && b.args.n===0));
+  const duck=loop.body.find(b=>b.op==='ctrl.ifelse' && has(b.args.c,'sense.key'));
+  assert.ok(duck && duck.args.c.args.k==='down', 'no ducking on ↓');
+  assert.strictEqual(duck.body[0].args.s, 'dino/ducking');
+  assert.strictEqual(duck.body2[0].args.s, 'dino/dino', 'letting go of ↓ does not stand it back up');
 });
 
 test('each obstacle is an object of its own, wearing its own picture', ()=>{
@@ -107,74 +111,53 @@ test('each obstacle is an object of its own, wearing its own picture', ()=>{
     assert.ok(c, `${o.name} is not in the cast`);
     assert.strictEqual(c.shape, o.shape);
     assert.ok(COSTUMES.isModel(o.shape), `${o.name} wears ${o.shape}, which is not a costume`);
-    assert.strictEqual(c.visible, false, `${o.name}'s spawner would be sitting on the screen`);
+    assert.strictEqual(c.visible, false, `${o.name}'s original would be sitting on the screen`);
+    assert.strictEqual(c.x, DINO.NUM.SPAWN_X, `${o.name} waits somewhere its copies should not start`);
     assert.ok(!blocks(o.name).some(b=>b.op==='looks.shape'), `${o.name} changes into something else`);
   });
   assert.strictEqual(new Set(OBST.map(o=>o.shape)).size, OBST.length, 'two obstacles wear the same picture');
+  assert.strictEqual(DINO.CAST.find(x=>x.name==='Bird').y, DINO.NUM.LANE, 'the Bird is not at head height');
 });
 
-test('↓ ducks, and touching any of the four ends the game', ()=>{
-  const loop=loopOf(hat(DINO.DINO,'event.flag'));
-  const duck=loop.body.find(b=>b.op==='ctrl.ifelse' && has(b.args.c,'sense.key'));
-  assert.ok(duck && duck.args.c.args.k==='down', 'no ducking on ↓');
-  assert.strictEqual(duck.body[0].args.s, 'dino/ducking');
-  OBST.forEach(o=>{
-    const crash=loop.body.find(b=>b.op==='ctrl.if' && b.args.c.op==='sense.touch' && b.args.c.args.o===o.name);
-    assert.ok(crash, `the Dino never checks whether it touched the ${o.name}`);
-    assert.ok(crash.body.some(b=>b.op==='looks.shape' && b.args.s==='dino/crashed'), 'no crashed picture');
-    assert.ok(crash.body.some(b=>b.op==='ctrl.stop' && b.args.w==='all'), `touching the ${o.name} does not end the game`);
-  });
-});
-
-test('each obstacle waits for its own number, makes one copy, and the copy slides away', ()=>{
+test('each obstacle waits for its number, makes one copy, and the copy slides, hits, and goes', ()=>{
   assert.deepStrictEqual(OBST.map(o=>o.n).sort(), OBST.map((o,i)=>i+1), 'the numbers are not 1, 2, 3, 4');
   OBST.forEach(o=>{
     const flag=hat(o.name,'event.flag');
-    assert.ok(flag.body.some(b=>b.op==='looks.hide'), `${o.name}: the spawner is not hidden`);
+    assert.ok(flag.body.some(b=>b.op==='looks.hide'), `${o.name}: the original is not hidden`);
     const loop=loopOf(flag);
     const wait=loop.body.find(b=>b.op==='ctrl.waitUntil');
     assert.ok(wait && wait.args.c.op==='op.eq' && wait.args.c.args.a.args.v==='next' && wait.args.c.args.b===o.n,
       `${o.name} does not wait for next = ${o.n}`);
     assert.ok(loop.body.some(b=>b.op==='data.set' && b.args.v==='next' && b.args.n===0),
       `${o.name} never gives the turn back, so it would make a copy every frame`);
-    assert.ok(has(loop,'ctrl.clone'), `${o.name} never makes a copy`);
+    assert.ok(loop.body.some(b=>b.op==='ctrl.clone'), `${o.name} never makes a copy`);
     const clone=hat(o.name,'event.clone');
-    assert.ok(clone, `${o.name}: a copy does nothing`);
     assert.ok(clone.body.some(b=>b.op==='looks.show'), `${o.name}: a copy of a hidden object stays hidden`);
-    assert.ok(clone.body.some(b=>b.op==='ctrl.repeatUntil' && has(b,'motion.changeBy')), `${o.name}: a copy never moves`);
+    const run=clone.body.find(b=>b.op==='ctrl.repeatUntil');
+    assert.ok(run && run.body.some(b=>b.op==='motion.changeBy' && b.args.a==='x'), `${o.name}: a copy never moves`);
+    const hit=run.body.find(b=>b.op==='ctrl.if' && b.args.c.op==='sense.touch');
+    assert.ok(hit && hit.args.c.args.o===DINO.DINO, `${o.name} never checks for the Dino`);
+    assert.ok(hit.body.some(b=>b.op==='ctrl.stop' && b.args.w==='all'), `touching the ${o.name} does not end the game`);
     assert.strictEqual(clone.body[clone.body.length-1].op, 'ctrl.delclone', `${o.name}: copies pile up for ever`);
   });
 });
 
-test('birds wait until the game is fast, and fly at one of three heights', ()=>{
-  const loop=loopOf(hat('Bird','event.flag'));
-  const gate=loop.body.find(b=>b.op==='ctrl.if' && b.args.c.op==='op.gt' && b.args.c.args.a.args.v==='speed');
-  assert.ok(gate && has(gate,'ctrl.clone'), 'birds are not held back until the game is fast');
-  const go=hat('Bird','event.clone').body.find(b=>b.op==='motion.goto');
-  assert.ok(go && has(go.args.y,'op.random'), 'every bird flies at the same height');
-  ['Small Cactus','Big Cactus','Cactus Group'].forEach(n=>
-    assert.ok(!has(loopOf(hat(n,'event.flag')),'ctrl.if'), `${n} is held back like a bird`));
-});
-
-test('the Ground picks what comes next, and when', ()=>{
-  const decide=S[DINO.GROUND].find(sc=>sc.hat.op==='event.flag' &&
-    all(sc.body).some(b=>b.op==='data.set' && b.args.v==='next' && has(b,'op.random')));
-  assert.ok(decide, 'nothing ever sets `next`, so nothing ever comes out');
-  const pick=all(decide.body).find(b=>b.op==='data.set' && b.args.v==='next' && has(b,'op.random'));
-  assert.strictEqual(pick.args.n.args.a, 1);
-  assert.strictEqual(pick.args.n.args.b, OBST.length, 'some obstacle can never be picked');
-  assert.ok(loopOf(decide).body.some(b=>b.op==='ctrl.wait' && has(b,'op.random')), 'every gap is the same gap');
-});
-
-test('the Ground scrolls, speeds the game up, and counts the score', ()=>{
+test('the Ground scrolls, speeds up, counts the score, and picks what comes next', ()=>{
   const loop=loopOf(hat(DINO.GROUND,'event.flag'));
-  const speed=loop.body.find(b=>b.op==='data.set' && b.args.v==='speed');
-  assert.ok(speed && has(speed,'sense.timer'), 'the game never gets faster');
-  assert.ok(loop.body.some(b=>b.op==='ctrl.if' && b.body.some(x=>x.op==='data.set' && x.args.v==='speed')),
-    'nothing stops it getting faster for ever');
+  assert.ok(loop.body.some(b=>b.op==='motion.changeBy' && b.args.a==='x'), 'the ground never moves');
   assert.ok(loop.body.some(b=>b.op==='ctrl.if' && b.body.some(x=>x.op==='motion.changeBy' && x.args.n===DINO.NUM.TILE)),
     'the ground runs out');
   assert.ok(loop.body.some(b=>b.op==='data.change' && b.args.v==='score'), 'nothing counts the score');
+  assert.ok(loop.body.some(b=>b.op==='data.change' && b.args.v==='speed' && b.args.n>0), 'the game never gets faster');
+  const decide=S[DINO.GROUND].find(sc=>all(sc.body).some(b=>b.op==='data.set' && b.args.v==='next' && has(b,'op.random')));
+  assert.ok(decide, 'nothing ever sets `next`, so nothing ever comes out');
+  const pick=all(decide.body).find(b=>b.op==='data.set' && b.args.v==='next');
+  assert.strictEqual(pick.args.n.args.a, 1);
+  assert.strictEqual(pick.args.n.args.b, OBST.length, 'some obstacle can never be picked');
+  const gap=loopOf(decide).body.find(b=>b.op==='ctrl.wait');
+  assert.ok(gap && has(gap,'op.random'), 'every gap is the same gap');
+  assert.ok(!Number.isInteger(gap.args.n.args.a) || !Number.isInteger(gap.args.n.args.b),
+    'a random between two whole numbers is a whole number: the gap would be exactly 1 or 2 seconds');
 });
 
 test('the room does not play the game: no rule is written in JavaScript', ()=>{
@@ -183,6 +166,13 @@ test('the room does not play the game: no rule is written in JavaScript', ()=>{
   assert.ok(!/vars\.score\s*[+\-]?=/.test(room.replace(/VM\.project\.vars\.score=0;/,'')),
     'the room writes the score');
   assert.ok(!/\.z\s*[+\-]=/.test(room), 'the room moves something up or down itself');
+});
+
+test('a refresh brings back the original game: the room never saves the blocks', ()=>{
+  const writes=[...DINOJS.matchAll(/localStorage\.setItem\(\s*([A-Z_]+)/g)].map(m=>m[1]);
+  assert.ok(writes.length, 'the setItem calls could not be found');
+  writes.forEach(k=>assert.ok(['HI_KEY','LANG_KEY','SOUND_KEY'].includes(k), `the room saves ${k}`));
+  assert.ok(!/getItem\([^)]*scripts/.test(DINOJS), 'the room reads saved blocks back');
 });
 
 /* =================================================== the costumes */
@@ -223,16 +213,15 @@ test('two drawings touch where their pixels do — not where their boxes do', ()
   assert.strictEqual(COSTUMES.touching(dino, { x:0, z:0, size:1, shape:'cube' }), null,
     'a plain shape should fall back to the VM\'s sphere');
 });
-test('a bird at 1.3 hits a standing Dino and misses a ducking one; at 2.6 it misses both', ()=>{
+test('the Bird, at head height, hits a standing Dino and misses a ducking one', ()=>{
   const L=DINO.NUM.LANE;
   const stand=wearing('dino/dino', -12, 0), duck=wearing('dino/ducking', -12, 0);
   assert.strictEqual(COSTUMES.touching(stand, wearing('desert/bird', -11.5, L)),   true,  'mid bird, standing');
   assert.strictEqual(COSTUMES.touching(duck,  wearing('desert/bird', -11.5, L)),   false, 'mid bird, ducking');
-  assert.strictEqual(COSTUMES.touching(stand, wearing('desert/bird', -11.5, 2*L)), false, 'high bird, standing');
-  assert.strictEqual(COSTUMES.touching(stand, wearing('desert/bird', -11.5, 0)),   true,  'low bird, standing');
 });
 
 /* ====================================================== playing it */
+const LEAD = 16;             // how many frames before a cactus the test player jumps
 function play(seed, lead, seconds){
   const d=desert(seed);
   d.VM.greenFlag();
@@ -242,12 +231,12 @@ function play(seed, lead, seconds){
   }
   return d;
 }
-test('a player who jumps on time survives two minutes, all the way to top speed', ()=>{
+test('a player who jumps on time survives two minutes, getting faster all the way', ()=>{
   [1,2,3].forEach(seed=>{
-    const d=play(seed, 8, 120);
+    const d=play(seed, LEAD, 120);
     assert.ok(d.VM.running, `seed ${seed}: crashed at ${d.seconds.toFixed(1)}s`);
-    assert.ok(+d.VM.project.vars.speed >= DINO.NUM.TOP - 1e-9, 'it never reached top speed');
-    assert.ok(+d.VM.project.vars.score > 1500, 'the score did not count up');
+    assert.ok(+d.VM.project.vars.speed > DINO.NUM.SPEED*3, 'the game did not get faster');
+    assert.ok(+d.VM.project.vars.score > 1400, 'the score did not count up');
   });
 });
 test('in a real game all four come out, and never two in the same place', ()=>{
@@ -255,7 +244,7 @@ test('in a real game all four come out, and never two in the same place', ()=>{
   const seen=new Set(), counted=new Set();
   d.VM.greenFlag();
   while(d.VM.running && d.seconds<120){
-    player(d, 8); d.step();
+    player(d, LEAD); d.step();
     const on=d.obstacles();
     on.forEach(o=>{ if(!counted.has(o)){ counted.add(o); seen.add(o.name); } });
     /* two copies on the screen never share a stretch of ground */
@@ -268,7 +257,7 @@ test('in a real game all four come out, and never two in the same place', ()=>{
 });
 
 test('the timing matters: jumping far too early or far too late loses', ()=>{
-  const late=play(4, 0, 60), early=play(4, 30, 60);
+  const late=play(4, 0, 60), early=play(4, 40, 60);
   assert.ok(!late.VM.running, 'jumping on contact still survived');
   assert.ok(!early.VM.running, 'jumping from miles away still survived');
 });
@@ -276,19 +265,21 @@ test('a player who does nothing crashes into the first obstacle', ()=>{
   const d=play(5, null, 30);
   assert.ok(!d.VM.running, 'nothing ended the game');
   assert.ok(d.seconds < 6, `it took ${d.seconds.toFixed(1)}s to crash`);
-  assert.strictEqual(d.dino().shape, 'dino/crashed', 'the Dino did not put its crashed costume on');
+  assert.ok(d.obstacles().some(o=>d.COSTUMES.touching(d.dino(), o)), 'the game stopped with nothing touching the Dino');
 });
-test('a changed number changes the game: a bigger `jump` jumps higher', ()=>{
-  const peak=(n)=>{
+test('a changed number changes the game: a bigger `y` in the glide jumps higher', ()=>{
+  const peak=(y)=>{
     const d=desert(6);
-    const set=all(d.dino().scripts[0].body).find(b=>b.op==='data.set' && b.args.v==='jump' && b.args.n>0);
-    set.args.n=n;
+    const up=all(d.dino().scripts[1].body).find(b=>b.op==='motion.glide' && b.args.y>0);
+    up.args.y=y;
     d.VM.greenFlag(); d.G.keys.Space=true;
-    let top=0;
-    for(let i=0;i<120;i++){ d.step(); if(i===2) d.G.keys.Space=false; top=Math.max(top, -d.dino().z); }
-    return top;
+    let top=0, landed=false;
+    for(let i=0;i<120;i++){ d.step(); if(i===2) d.G.keys.Space=false;
+      const h=-d.dino().z; top=Math.max(top, h); if(i>10 && h===0) landed=true; }
+    return { top, landed };
   };
-  const normal=peak(DINO.NUM.JUMP), moon=peak(0.8);
-  assert.ok(normal>3.5 && normal<5.5, `a normal jump peaks at ${normal.toFixed(2)}`);
-  assert.ok(moon>normal*2, 'a bigger number did not jump higher');
+  const normal=peak(DINO.NUM.JUMP_Y), moon=peak(9);
+  assert.ok(Math.abs(normal.top-DINO.NUM.JUMP_Y)<0.01, `a normal jump peaks at ${normal.top.toFixed(2)}`);
+  assert.ok(normal.landed, 'the Dino never came back down');
+  assert.ok(moon.top>8.9, 'a bigger number did not jump higher');
 });

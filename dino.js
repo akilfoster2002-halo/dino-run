@@ -7,20 +7,18 @@
    ordinary objects with ordinary scripts on them, and nothing underneath
    doing the interesting part.
 
-     Dino          jumps on SPACE or ↑, falls back down because a variable
-                   called `jump` is made smaller every frame, ducks on ↓,
-                   and ends the game when it touches any of the four below
-     Small Cactus  \
-     Big Cactus     |  one object each, and the same four blocks each: hide,
-     Cactus Group   |  wait until `next` is my number, make a copy of myself;
-     Bird          /   every copy slides left at `speed` and deletes itself.
-                       The Bird waits until the game is fast, and flies at
-                       one of three heights.
-     Ground        slides left at `speed` and jumps back every 32 squares so
-                   the line never runs out; sets `speed` (faster the longer
-                   you last), counts `score`, and picks `next` — which of
-                   the four comes out, and when — so two of them never come
-                   out on top of each other
+   AND THE SCRIPTS ARE AS SHORT AS THEY CAN BE AND STILL BE THE GAME:
+
+     Dino          when SPACE is pressed and it is on the ground: glide up,
+                   glide down. Forever: ↓ held means the ducking picture.
+     Small Cactus  \  the same two scripts each. The hidden original waits
+     Big Cactus     | until `next` is its number and makes a copy of itself;
+     Cactus Group   | the copy slides left at `speed`, ends the game if it
+     Bird          /  touches the Dino, and deletes itself off the screen.
+     Ground        slides left and jumps back every 32 squares so the line
+                   never runs out, counts `score`, speeds up a little every
+                   frame, and picks `next` — which of the four comes out,
+                   and when — so two never come out on top of each other.
 
    WHAT THE ROOM OWNS is the boring half, the same division Pong draws:
    the sky, the clouds, the camera, and a scoreboard that shows what the
@@ -28,10 +26,6 @@
    ends the game and never decides a hit counts. It only WATCHES — to play
    the sounds, to keep the high score, to turn night on at 700 — and none
    of that is a rule of the game.
-
-   THE NUMBERS ARE THE LESSON. `set jump to 0.5` is how high it jumps;
-   `change jump by -0.03` is gravity; `0.3 + timer ÷ 300` is how fast it
-   gets. Every one of them is a number a student can change and play.
    ===================================================================== */
 window.DINO = (function(){
   const $ = s => document.querySelector(s);
@@ -39,35 +33,35 @@ window.DINO = (function(){
 
   const DINO='Dino', GROUND='Ground';
   /* THE FOUR THINGS IN THE WAY, one object each. `n` is the number `next`
-     has to be for it to come out. */
+     has to be for it to come out; `y` is how high it goes. The Bird flies
+     at head height: duck under it, or jump it. */
+  const LANE=1.3;
   const OBSTACLES=[
-    { name:'Small Cactus', shape:'desert/cactus', n:1 },
-    { name:'Big Cactus',   shape:'desert/big',    n:2 },
-    { name:'Cactus Group', shape:'desert/group',  n:3 },
-    { name:'Bird',         shape:'desert/bird',   n:4 }
+    { name:'Small Cactus', shape:'desert/cactus', n:1, y:0 },
+    { name:'Big Cactus',   shape:'desert/big',    n:2, y:0 },
+    { name:'Cactus Group', shape:'desert/group',  n:3, y:0 },
+    { name:'Bird',         shape:'desert/bird',   n:4, y:LANE }
   ];
-  const BIRD='Bird';
-  const SAVE_KEY='dino-run.scripts.v2', HI_KEY='dino-run.hi.v1',
+  const OLD_SAVES=['dino-run.scripts.v1','dino-run.scripts.v2','dino-run.scripts.v3'];
+  const HI_KEY='dino-run.hi.v1',
         LANG_KEY='dino-run.lang', SOUND_KEY='dino-run.sound';
 
   /* ----------------------------------------------------- the numbers
-     Measured off the original and put into squares: 1 square is 20 of
-     its pixels, and it runs at 60 frames a second. */
+     In squares, at 60 frames a second. */
   const START_X=-12;          // where the Dino runs
-  const JUMP=0.5;             // how fast it leaves the ground
-  const GRAVITY=0.03;         // how much of that it loses every frame
-  const SPEED=0.3, TOP=0.65;  // squares a frame: at the start, and at most
-  const SPEEDUP=300;          // speed = SPEED + timer ÷ SPEEDUP
-  const BIRDS=0.4;            // birds only once speed is past this
-  const LANE=1.3;             // bird heights are 0, 1.3 and 2.6
+  const JUMP_Y=6, JUMP_T=0.35; // a jump: up to y 6 in 0.35 s, and back down
+  const SPEED=0.3;            // squares a frame at the start…
+  const SPEEDUP=0.0001;       // …and this much more every frame
+  const SCORE=0.2;            // points a frame
+  const GAP={ a:1, b:2.5 };   // seconds between one obstacle and the next
   const SPAWN_X=20, GONE_X=-20, TILE=32;
 
   /* EVERY OBJECT, where it starts and what it wears. The Dino first, so
-     it is the first chip in the editor and its script runs first in every
-     frame; the four spawners wait out of sight where their copies appear. */
+     it is the first chip in the editor. The four originals wait, hidden,
+     exactly where their copies start — so a copy needs no `go to`. */
   const CAST=[
-    { name:DINO, shape:'dino/dino', x:START_X, y:0, visible:true, vars:{ jump:0 } },
-    ...OBSTACLES.map(o=>({ name:o.name, shape:o.shape, x:SPAWN_X, y:0, visible:false, vars:{} })),
+    { name:DINO, shape:'dino/dino', x:START_X, y:0, visible:true, vars:{} },
+    ...OBSTACLES.map(o=>({ name:o.name, shape:o.shape, x:SPAWN_X, y:o.y, visible:false, vars:{} })),
     { name:GROUND, shape:'desert/ground', x:0, y:0, visible:true, vars:{} }
   ];
 
@@ -78,11 +72,7 @@ window.DINO = (function(){
 
   /* ----------------------------------------------------- the palette
      Everything the game is made of and a little more, so there is
-     something to reach for when changing it: `say`, `size`, `turn`. The
-     things this game teaches with are all here — a variable that changes
-     every frame (gravity), a random choice (what comes next), a variable
-     four objects share (`next`), and a clone (every cactus on the screen
-     is a copy of one hidden one). */
+     something to reach for when changing it. */
   const PALETTE={
     locked:true,
     cats:['events','control','motion','looks','sensing','ops','data'],
@@ -90,7 +80,7 @@ window.DINO = (function(){
       'event.flag','event.key','event.clone',
       'ctrl.wait','ctrl.repeat','ctrl.forever','ctrl.if','ctrl.ifelse',
       'ctrl.waitUntil','ctrl.repeatUntil','ctrl.stop','ctrl.clone','ctrl.delclone',
-      'motion.goto','motion.changeBy','motion.setTo','motion.pos','motion.turn',
+      'motion.goto','motion.glide','motion.changeBy','motion.setTo','motion.pos','motion.turn',
       'looks.shape','looks.show','looks.hide','looks.size','looks.say','looks.sayFor',
       'sense.key','sense.touch','sense.posOf','sense.timer',
       'op.add','op.sub','op.mul','op.div','op.random','op.lt','op.gt','op.eq',
@@ -99,15 +89,16 @@ window.DINO = (function(){
     ]
   };
   /* WHAT A BLOCK ARRIVES SET TO, taken off the shelf — the game's own
-     numbers, so a second `change y by` behaves like the first one. */
+     numbers, so a new block behaves like the ones already there. */
   const SET={
-    'motion.changeBy': { a:'y', n:JUMP },
+    'motion.glide':    { t:JUMP_T, x:START_X, y:JUMP_Y, z:1 },
+    'motion.changeBy': { a:'y', n:1 },
     'motion.setTo':    { a:'y', n:0 },
     'motion.goto':     { x:START_X, y:0, z:1 },
     'motion.pos':      { a:'y' },
     'sense.key':       { k:'space' },
     'event.key':       { k:'space' },
-    'sense.touch':     { o:OBSTACLES[0].name },
+    'sense.touch':     { o:DINO },
     'sense.posOf':     { a:'y', o:DINO },
     'ctrl.stop':       { w:'all' },
     'looks.shape':     { s:'dino/dino' },
@@ -124,67 +115,49 @@ window.DINO = (function(){
     if(body) b.body=body; if(body2) b.body2=body2; return b; };
   const IF=(c,body)=>B('ctrl.if',{ c }, body);
   const IFELSE=(c,yes,no)=>B('ctrl.ifelse',{ c }, yes, no);
-  const pos=k=>B('motion.pos',{ a:k });
   const v=name=>B('data.get',{ v:name });
-  const key=k=>B('sense.key',{ k });
   const become=s=>B('looks.shape',{ s });
   const minus=x=>B('op.sub',{ a:0, b:x });
+  const slideLeft=()=>B('motion.changeBy',{ a:'x', n:minus(v('speed')) });
 
   function scripts(){
     const out={};
     /* ------------------------------------------------------ the Dino
-       A jump is a number. `jump` is how fast it is going up; every frame
-       the Dino moves up by it and it gets 0.03 smaller, so it slows, stops
-       and comes back down — which is all gravity is. Landing is noticing
-       you have gone through the floor and putting yourself back on it. */
-    out[DINO]=[{ hat:B('event.flag'), body:[
-      B('motion.goto',{ x:START_X, y:0, z:1 }),
-      become('dino/dino'),
-      B('data.set',{ v:'jump', n:0 }),
-      B('ctrl.forever',{},[
-        IF(B('op.eq',{ a:pos('y'), b:0 }), [
-          IF(B('op.or',{ c:key('space'), d:key('up') }), [ B('data.set',{ v:'jump', n:JUMP }) ])
-        ]),
-        B('motion.changeBy',{ a:'y', n:v('jump') }),
-        B('data.change',{ v:'jump', n:-GRAVITY }),
-        IF(B('op.lt',{ a:pos('y'), b:0 }), [
-          B('motion.setTo',{ a:'y', n:0 }),
-          B('data.set',{ v:'jump', n:0 })
-        ]),
-        IFELSE(key('down'), [ become('dino/ducking') ], [ become('dino/dino') ]),
-        /* one check for each thing that can be hit: add an obstacle, add
-           a check */
-        ...OBSTACLES.map(o=>IF(B('sense.touch',{ o:o.name }), [
-          become('dino/crashed'),
-          B('ctrl.stop',{ w:'all' })
-        ]))
-      ]) ]}];
+       A jump is two glides: up, then back down to the ground. Only from
+       the ground, or SPACE in mid-air would start another jump. */
+    out[DINO]=[
+      { hat:B('event.flag'), body:[
+        B('motion.goto',{ x:START_X, y:0, z:1 }),
+        B('ctrl.forever',{},[
+          IFELSE(B('sense.key',{ k:'down' }), [ become('dino/ducking') ], [ become('dino/dino') ])
+        ]) ]},
+      { hat:B('event.key',{ k:'space' }), body:[
+        IF(B('op.eq',{ a:B('motion.pos',{ a:'y' }), b:0 }), [
+          B('motion.glide',{ t:JUMP_T, x:START_X, y:JUMP_Y, z:1 }),
+          B('motion.glide',{ t:JUMP_T, x:START_X, y:0, z:1 })
+        ]) ]}
+    ];
 
     /* ------------------------------------------------ the four obstacles
-       The same shape four times. The object itself stays hidden and only
-       ever makes copies — one each time `next` comes up with its number —
-       and every copy slides left until it is off the screen. `next` goes
-       back to 0 the moment it is taken, so one number is one copy. */
+       The same two scripts four times. The original stays hidden and only
+       makes copies — one each time `next` comes up with its number, which
+       it then sets back to 0 so one number is one copy. A copy starts where
+       the original waits, slides left, and ends the game if it touches the
+       Dino. */
     OBSTACLES.forEach(o=>{
-      const bird = o.name===BIRD;
-      const copy = B('ctrl.clone');
       out[o.name]=[
         { hat:B('event.flag'), body:[
           B('looks.hide'),
           B('ctrl.forever',{},[
             B('ctrl.waitUntil',{ c:B('op.eq',{ a:v('next'), b:o.n }) }),
             B('data.set',{ v:'next', n:0 }),
-            /* birds wait until the game is fast, the way they do in the
-               real one — until then their turn is just a longer gap */
-            bird ? IF(B('op.gt',{ a:v('speed'), b:BIRDS }), [ copy ]) : copy
+            B('ctrl.clone')
           ]) ]},
         { hat:B('event.clone'), body:[
-          B('motion.goto',{ x:SPAWN_X, z:1,
-            /* a bird flies low, at head height, or overhead */
-            y: bird ? B('op.mul',{ a:B('op.random',{ a:0, b:2 }), b:LANE }) : 0 }),
           B('looks.show'),
-          B('ctrl.repeatUntil',{ c:B('op.lt',{ a:pos('x'), b:GONE_X }) }, [
-            B('motion.changeBy',{ a:'x', n:minus(v('speed')) })
+          B('ctrl.repeatUntil',{ c:B('op.lt',{ a:B('motion.pos',{ a:'x' }), b:GONE_X }) }, [
+            slideLeft(),
+            IF(B('sense.touch',{ o:DINO }), [ B('ctrl.stop',{ w:'all' }) ])
           ]),
           B('ctrl.delclone')
         ]}
@@ -192,27 +165,24 @@ window.DINO = (function(){
     });
 
     /* ----------------------------------------------------- the Ground
-       The world moving past. How far it has moved is your score, and it
-       moves faster the longer the game has been going. Its second script
-       says what comes next: a number from 1 to 4, then a gap. */
-    out[GROUND]=[{ hat:B('event.flag'), body:[
-      B('motion.goto',{ x:0, y:0, z:1 }),
-      B('data.set',{ v:'score', n:0 }),
-      B('ctrl.forever',{},[
-        B('data.set',{ v:'speed', n:B('op.add',{ a:SPEED,
-          b:B('op.div',{ a:B('sense.timer'), b:SPEEDUP }) }) }),
-        IF(B('op.gt',{ a:v('speed'), b:TOP }), [ B('data.set',{ v:'speed', n:TOP }) ]),
-        B('motion.changeBy',{ a:'x', n:minus(v('speed')) }),
-        IF(B('op.lt',{ a:pos('x'), b:-TILE }), [ B('motion.changeBy',{ a:'x', n:TILE }) ]),
-        B('data.change',{ v:'score', n:B('op.div',{ a:v('speed'), b:2 }) })
-      ]) ]},
+       The world moving past, a little faster every frame. Its second
+       script says what comes next: a number from 1 to 4, then a gap. */
+    out[GROUND]=[
       { hat:B('event.flag'), body:[
-        B('data.set',{ v:'next', n:0 }),
-        B('ctrl.wait',{ n:1.5 }),
+        B('data.set',{ v:'speed', n:SPEED }),
+        B('data.set',{ v:'score', n:0 }),
+        B('ctrl.forever',{},[
+          slideLeft(),
+          IF(B('op.lt',{ a:B('motion.pos',{ a:'x' }), b:-TILE }), [ B('motion.changeBy',{ a:'x', n:TILE }) ]),
+          B('data.change',{ v:'score', n:SCORE }),
+          B('data.change',{ v:'speed', n:SPEEDUP })
+        ]) ]},
+      { hat:B('event.flag'), body:[
         B('ctrl.forever',{},[
           B('data.set',{ v:'next', n:B('op.random',{ a:1, b:OBSTACLES.length }) }),
-          B('ctrl.wait',{ n:B('op.random',{ a:0.8, b:1.8 }) })
-        ]) ]}];
+          B('ctrl.wait',{ n:B('op.random',{ a:GAP.a, b:GAP.b }) })
+        ]) ]}
+    ];
     return out;
   }
   const NAMES=CAST.map(c=>c.name);
@@ -231,18 +201,18 @@ window.DINO = (function(){
     'Every rule of this game is a block. Click the <b>Dino</b>, a <b>cactus</b> or the <b>ground</b> — or press <b>C</b> — to read the code that makes it work. Change a number, then play again.':
       'Cada regla de este juego es un bloque. Haz clic en el <b>Dino</b>, en un <b>cactus</b> o en el <b>suelo</b> — o presiona <b>C</b> — para leer el código que lo hace funcionar. Cambia un número y vuelve a jugar.',
     'TRY THIS':'PRUEBA ESTO',
-    '<b>Moon jump.</b> On the Dino, make <code>set jump to 0.5</code> bigger.':
-      '<b>Salto lunar.</b> En el Dino, haz más grande <code>set jump to 0.5</code>.',
-    '<b>Heavy gravity.</b> Change <code>change jump by -0.03</code> to <code>-0.06</code>.':
-      '<b>Gravedad pesada.</b> Cambia <code>change jump by -0.03</code> a <code>-0.06</code>.',
-    '<b>Fast start.</b> On the Ground, change the <code>0.3</code> in <code>set speed</code>.':
-      '<b>Salida rápida.</b> En el Ground (suelo), cambia el <code>0.3</code> de <code>set speed</code>.',
-    '<b>Birds now.</b> On the Bird, change <code>speed &gt; 0.4</code> to <code>speed &gt; 0</code>.':
-      '<b>Pájaros ya.</b> En el Bird (pájaro), cambia <code>speed &gt; 0.4</code> a <code>speed &gt; 0</code>.',
-    '<b>Can’t lose?</b> Take the <code>stop all</code> blocks out of the Dino. What happens?':
-      '<b>¿Imposible perder?</b> Quita los bloques <code>stop all</code> del Dino. ¿Qué pasa?',
-    'Your changes are saved in this browser. <b>↺</b> puts the original game back.':
-      'Tus cambios se guardan en este navegador. <b>↺</b> devuelve el juego original.',
+    '<b>Moon jump.</b> On the Dino, change the <code>y 6</code> in the first <code>glide</code> to <code>9</code>.':
+      '<b>Salto lunar.</b> En el Dino, cambia el <code>y 6</code> del primer <code>glide</code> a <code>9</code>.',
+    '<b>Quick jump.</b> Change the <code>0.35</code> in both <code>glide</code> blocks to <code>0.2</code>.':
+      '<b>Salto rápido.</b> Cambia el <code>0.35</code> de los dos bloques <code>glide</code> a <code>0.2</code>.',
+    '<b>Fast start.</b> On the Ground, change <code>set speed to 0.3</code> to <code>0.6</code>.':
+      '<b>Salida rápida.</b> En el Ground (suelo), cambia <code>set speed to 0.3</code> a <code>0.6</code>.',
+    '<b>Only birds.</b> On the Ground, change <code>pick random 1 to 4</code> to <code>4 to 4</code>.':
+      '<b>Solo pájaros.</b> En el Ground (suelo), cambia <code>pick random 1 to 4</code> a <code>4 to 4</code>.',
+    '<b>Can’t lose?</b> Take <code>stop all</code> out of the Bird. What happens?':
+      '<b>¿Imposible perder?</b> Quita <code>stop all</code> del Bird (pájaro). ¿Qué pasa?',
+    'Your changes last until you refresh the page. <b>↺</b> puts the original game back.':
+      'Tus cambios duran hasta que recargues la página. <b>↺</b> devuelve el juego original.',
     'Play ▶':'Jugar ▶',
     'BLOCKS':'BLOQUES','RUN':'JUGAR','STOP':'PARAR',
     'Show the instructions again':'Ver las instrucciones otra vez',
@@ -303,43 +273,21 @@ window.DINO = (function(){
     VM.project.vars.next=0;
   }
 
-  /* ------------------------------------------------- keeping the work
-     A changed game is somebody's experiment, and a refreshed tab should
-     not throw it away. Only the scripts are kept; ↺ puts the given game
-     back. */
+  /* ------------------------------------------------- nothing is kept
+     Every page load is the original game. A student's changes last until
+     the page is refreshed, and ↺ puts the original back before that. */
   function given(){
     const all=scripts();
     NAMES.forEach(n=>{ const a=actor(n); if(a) a.scripts=JSON.parse(JSON.stringify(all[n])); });
   }
-  function restore(){
-    given();
-    let saved=null;
-    try{ saved=JSON.parse(localStorage.getItem(SAVE_KEY)||'null'); }catch(e){}
-    if(saved && typeof saved==='object')
-      NAMES.forEach(n=>{ const a=actor(n); if(a && Array.isArray(saved[n])) a.scripts=saved[n]; });
-  }
-  /* ONLY A CHANGED GAME IS KEPT. A browser that stored the untouched
-     scripts would go on playing them after the game itself was updated,
-     so when the blocks are the given ones again the slot is emptied. */
-  let lastSaved='';
-  const stock = () => JSON.stringify(Object.fromEntries(NAMES.map(n=>[n, scripts()[n]])));
-  function keep(){
-    const out={};
-    NAMES.forEach(n=>{ const a=actor(n); out[n]=a ? a.scripts||[] : []; });
-    const s=JSON.stringify(out);
-    if(s===lastSaved) return;
-    lastSaved=s;
-    try{
-      if(s===stock()) localStorage.removeItem(SAVE_KEY);
-      else localStorage.setItem(SAVE_KEY, s);
-    }catch(e){}
+  /* earlier versions kept a student's blocks in the browser; clear them */
+  function forget(){
+    OLD_SAVES.forEach(k=>{ try{ localStorage.removeItem(k); }catch(e){} });
   }
   function original(){
     if(!confirm(T('Put the original game back? Your changes to the blocks will be thrown away.'))) return;
     VM.stopAll();
     given();
-    try{ localStorage.removeItem(SAVE_KEY); }catch(e){}
-    lastSaved='';
     VM.project.actors.filter(a=>a.isClone).slice().forEach(a=>VM.delActor(a));
     NAMES.forEach(n=>VM.resetActor(actor(n)));
     over=null; message();
@@ -474,11 +422,11 @@ window.DINO = (function(){
   function brief(){
     const el=$('#dnBrief .card'); if(!el) return;
     const tries=[
-      '<b>Moon jump.</b> On the Dino, make <code>set jump to 0.5</code> bigger.',
-      '<b>Heavy gravity.</b> Change <code>change jump by -0.03</code> to <code>-0.06</code>.',
-      '<b>Fast start.</b> On the Ground, change the <code>0.3</code> in <code>set speed</code>.',
-      '<b>Birds now.</b> On the Bird, change <code>speed &gt; 0.4</code> to <code>speed &gt; 0</code>.',
-      '<b>Can’t lose?</b> Take the <code>stop all</code> blocks out of the Dino. What happens?'
+      '<b>Moon jump.</b> On the Dino, change the <code>y 6</code> in the first <code>glide</code> to <code>9</code>.',
+      '<b>Quick jump.</b> Change the <code>0.35</code> in both <code>glide</code> blocks to <code>0.2</code>.',
+      '<b>Fast start.</b> On the Ground, change <code>set speed to 0.3</code> to <code>0.6</code>.',
+      '<b>Only birds.</b> On the Ground, change <code>pick random 1 to 4</code> to <code>4 to 4</code>.',
+      '<b>Can’t lose?</b> Take <code>stop all</code> out of the Bird. What happens?'
     ];
     el.innerHTML=`
       <div class="dn-lang"><button class="dn-btn" id="dnLang2">${LANG_BTN()}</button></div>
@@ -486,14 +434,14 @@ window.DINO = (function(){
       <p class="kick">${T('A WHOLE GAME, BUILT OUT OF BLOCKS')}</p>
       <p>${T('Run as far as you can. Jump over the cactuses and duck under the birds. The longer you run, the faster it gets.')}</p>
       <div class="dn-keys">
-        <div><kbd>SPACE</kbd> ${window.LANG==='es'?'o':'or'} <kbd>↑</kbd> <span>${T('jump')}</span></div>
+        <div><kbd>SPACE</kbd> <span>${T('jump')}</span></div>
         <div><kbd>↓</kbd> <span>${T('duck')}</span></div>
         <div><kbd>C</kbd> <span>${T('open the blocks')}</span></div>
       </div>
       <p>${T('Every rule of this game is a block. Click the <b>Dino</b>, a <b>cactus</b> or the <b>ground</b> — or press <b>C</b> — to read the code that makes it work. Change a number, then play again.')}</p>
       <p class="kick">${T('TRY THIS')}</p>
       <ol>${tries.map(s=>`<li>${T(s)}</li>`).join('')}</ol>
-      <p class="dn-note">${T('Your changes are saved in this browser. <b>↺</b> puts the original game back.')}</p>
+      <p class="dn-note">${T('Your changes last until you refresh the page. <b>↺</b> puts the original game back.')}</p>
       <div class="row"><button class="btn good" id="dnGo">${T('Play ▶')}</button></div>`;
     $('#dnGo').onclick=closeBrief;
     $('#dnLang2').onclick=toggleLang;
@@ -605,7 +553,7 @@ window.DINO = (function(){
                                  el.tagName==='SELECT' || el.isContentEditable));
   function keys(e){
     if(typing(e.target)) return;
-    if(e.code!=='Space' && e.code!=='ArrowUp') return;
+    if(e.code!=='Space') return;
     if(briefOpen()){ if(e.code==='Space' && !e.repeat){ e.preventDefault(); closeBrief(); } return; }
     /* the editor being open is no reason not to play: change a number,
        press SPACE, and watch it in the gap between the two panels */
@@ -627,8 +575,8 @@ window.DINO = (function(){
     VM.enter(G.roomGroup);
     VM.project.actors.slice().forEach(a=>VM.delActor(a));
     cast();
-    restore();
-    lastSaved=JSON.stringify(Object.fromEntries(NAMES.map(n=>[n,actor(n).scripts])));
+    given();
+    forget();
     camera();
     if(window.CODER){
       CODER.restrict(Object.assign({ defaults:SET }, PALETTE));
@@ -652,7 +600,6 @@ window.DINO = (function(){
 
   /* ONE STEP OF THE GAME, sixty times a second whatever the screen does:
      the programs, and the room watching them */
-  let keepT=0;
   function step(dt){
     if(!on) return;
     VM.step(dt);
@@ -661,7 +608,6 @@ window.DINO = (function(){
     VM.project.actors.forEach(a=>{ if(a.y!==1){ a.y=1; VM.sync(a); } });
     if(VM.running) drift();
     watch();
-    if((keepT+=dt)>1){ keepT=0; keep(); }
   }
   /* AND ONCE PER PICTURE: the camera and the HUD */
   function draw(dt){
@@ -673,9 +619,9 @@ window.DINO = (function(){
     board(dt); buttons();
   }
 
-  return { start, step, draw, scripts, given, keep, setLang,
+  return { start, step, draw, scripts, given, setLang,
            DINO, GROUND, OBSTACLES, CAST, PALETTE, SET,
-           NUM:{ START_X, JUMP, GRAVITY, SPEED, TOP, SPEEDUP, BIRDS, LANE, SPAWN_X, GONE_X, TILE },
+           NUM:{ START_X, JUMP_Y, JUMP_T, SPEED, SPEEDUP, SCORE, GAP, LANE, SPAWN_X, GONE_X, TILE },
            get active(){ return on; },
            get over(){ return over; },
            get hi(){ return hi; },
