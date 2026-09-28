@@ -1,9 +1,11 @@
 /* =====================================================================
    DINO RUN — build the runner game yourself, out of blocks.
 
-   Three objects and no code. Every refresh starts here: the Dino, a
-   Cactus and the Ground, standing still, waiting for a student to write
-   what they do. The finished game is small:
+   Three objects, and only the Ground has code. Every refresh starts
+   here: the Ground sliding along under the Dino, so the Dino looks like
+   it is running from the first press of SPACE, and the Dino and a Cactus
+   standing still, waiting for a student to write what they do. The
+   finished game is small:
 
      Ground   slides left forever, jumps back every 32 squares so the line
               never runs out, and counts `score`
@@ -86,14 +88,24 @@ window.DINO = (function(){
     'data.change':     { n:SCORE }
   };
 
-  /* ================================================== the code
-     WHAT A STUDENT IS HANDED: nothing. */
-  const starter = () => ({ [DINO]:[], [CACTUS]:[], [GROUND]:[] });
-
-  /* THE ANSWER KEY, for a teacher: open the page with ?answer. */
+  /* ================================================== the code */
   const B=(op,args,body)=>{ const b={ op, args:args||{} }; if(body) b.body=body; return b; };
   const IF=(c,body)=>B('ctrl.if',{ c }, body);
   const pos=k=>B('motion.pos',{ a:k });
+
+  /* WHAT A STUDENT IS HANDED: the Ground, already sliding and already
+     wrapping, so the Dino looks like it runs; a worked example of the
+     slide the Cactus needs too. The Dino and the Cactus get nothing, and
+     the score is still the student's to count. */
+  const starter = () => ({ [DINO]:[], [CACTUS]:[],
+    [GROUND]:[{ hat:B('event.flag'), body:[
+      B('data.set',{ v:'score', n:0 }),
+      B('ctrl.forever',{},[
+        B('motion.changeBy',{ a:'x', n:-SPEED }),
+        IF(B('op.lt',{ a:pos('x'), b:-TILE }), [ B('motion.changeBy',{ a:'x', n:TILE }) ])
+      ]) ]}] });
+
+  /* THE ANSWER KEY, for a teacher: open the page with ?answer. */
   function answer(){
     const out={};
     out[DINO]=[
@@ -129,12 +141,12 @@ window.DINO = (function(){
   Object.assign(window.ES = window.ES || {}, {
     'DINO RUN':'DINO RUN',
     'BUILD THE GAME OUT OF BLOCKS':'CONSTRUYE EL JUEGO CON BLOQUES',
-    'The <b>Dino</b>, the <b>Cactus</b> and the <b>Ground</b> have no code yet. Click one — or press <b>C</b> — and write its blocks. Then press <b>SPACE</b> to play.':
-      'El <b>Dino</b>, el <b>Cactus</b> y el <b>Ground</b> (suelo) todavía no tienen código. Haz clic en uno — o presiona <b>C</b> — y escribe sus bloques. Luego presiona <b>SPACE</b> (espacio) para jugar.',
+    'The <b>Ground</b> already slides along, so the Dino looks like it is running. The <b>Dino</b> and the <b>Cactus</b> have no code yet. Click one — or press <b>C</b> — and write its blocks. Then press <b>SPACE</b> to play.':
+      'El <b>Ground</b> (suelo) ya se desliza, así que parece que el Dino corre. El <b>Dino</b> y el <b>Cactus</b> todavía no tienen código. Haz clic en uno — o presiona <b>C</b> — y escribe sus bloques. Luego presiona <b>SPACE</b> (espacio) para jugar.',
     'play, then jump':'jugar, y luego saltar','open the blocks':'abrir los bloques',
     'WHAT TO BUILD':'QUÉ CONSTRUIR',
-    '<b>Ground.</b> Make it slide left <code>forever</code> with <code>change x by -0.3</code>. When <code>x position &lt; -32</code>, <code>change x by 32</code> so it never runs out.':
-      '<b>Ground (suelo).</b> Haz que se deslice a la izquierda con <code>forever</code> y <code>change x by -0.3</code>. Cuando <code>x position &lt; -32</code>, <code>change x by 32</code> para que nunca se acabe.',
+    '<b>Ground.</b> Already done: it slides left <code>forever</code> with <code>change x by -0.3</code>, and when <code>x position &lt; -32</code> it does <code>change x by 32</code> so it never runs out. Click it to read how.':
+      '<b>Ground (suelo).</b> Ya está hecho: se desliza a la izquierda con <code>forever</code> y <code>change x by -0.3</code>, y cuando <code>x position &lt; -32</code> hace <code>change x by 32</code> para que nunca se acabe. Haz clic en él para ver cómo.',
     '<b>Cactus.</b> Slide it left the same way. When <code>x position &lt; -20</code>, <code>set x to 20</code> so it comes back.':
       '<b>Cactus.</b> Deslízalo a la izquierda igual. Cuando <code>x position &lt; -20</code>, <code>set x to 20</code> para que vuelva.',
     '<b>Dino.</b> <code>when space key pressed</code>: <code>glide</code> up to <code>y 6</code>, then <code>glide</code> back down to <code>y 0</code>.':
@@ -149,7 +161,7 @@ window.DINO = (function(){
     'BLOCKS':'BLOQUES','RUN':'JUGAR','STOP':'PARAR',
     'Show the instructions again':'Ver las instrucciones otra vez',
     'Sound on':'Sonido activado','Sound off':'Sonido apagado',
-    'Start again with no code':'Empezar otra vez sin código',
+    'Start again from the beginning':'Empezar otra vez desde el principio',
     'Throw away your code and start again?':'¿Borrar tu código y empezar otra vez?',
     'Teacher view — answer key loaded':'Vista del maestro — respuesta cargada',
     'Press <b>SPACE</b> to play':'Presiona <b>SPACE</b> (espacio) para jugar',
@@ -205,9 +217,10 @@ window.DINO = (function(){
   }
 
   /* ------------------------------------------------- nothing is kept
-     Every page load starts with no code (or, for a teacher at ?answer,
-     the finished game). A student's code lasts until the page is
-     refreshed, and ↺ clears it before that. */
+     Every page load starts from the starter — the Ground's code and
+     nothing else (or, for a teacher at ?answer, the finished game). A
+     student's code lasts until the page is refreshed, and ↺ puts the
+     starter back before that. */
   function given(){
     const all = teacher ? answer() : starter();
     NAMES.forEach(n=>{ const a=actor(n); if(a) a.scripts=JSON.parse(JSON.stringify(all[n])); });
@@ -347,7 +360,7 @@ window.DINO = (function(){
     const snd=$('#dnSound');
     if(snd){ snd.textContent = SND.on ? '🔊' : '🔇'; snd.title = T(SND.on ? 'Sound on' : 'Sound off'); }
     const help=$('#dnHelp'); if(help) help.title=T('Show the instructions again');
-    const rst=$('#dnReset'); if(rst) rst.title=T('Start again with no code');
+    const rst=$('#dnReset'); if(rst) rst.title=T('Start again from the beginning');
     const tb=$('#dnTeacher'); if(tb) tb.textContent=T('Teacher view — answer key loaded');
     brief(); message(); buttons();
   }
@@ -355,7 +368,7 @@ window.DINO = (function(){
   function brief(){
     const el=$('#dnBrief .card'); if(!el) return;
     const steps=[
-      '<b>Ground.</b> Make it slide left <code>forever</code> with <code>change x by -0.3</code>. When <code>x position &lt; -32</code>, <code>change x by 32</code> so it never runs out.',
+      '<b>Ground.</b> Already done: it slides left <code>forever</code> with <code>change x by -0.3</code>, and when <code>x position &lt; -32</code> it does <code>change x by 32</code> so it never runs out. Click it to read how.',
       '<b>Cactus.</b> Slide it left the same way. When <code>x position &lt; -20</code>, <code>set x to 20</code> so it comes back.',
       '<b>Dino.</b> <code>when space key pressed</code>: <code>glide</code> up to <code>y 6</code>, then <code>glide</code> back down to <code>y 0</code>.',
       '<b>Game over.</b> On the Cactus: <code>if touching Dino?</code> then <code>stop all</code>.',
@@ -365,7 +378,7 @@ window.DINO = (function(){
       <div class="dn-lang"><button class="dn-btn" id="dnLang2">${LANG_BTN()}</button></div>
       <h1>${T('DINO RUN')}</h1>
       <p class="kick">${T('BUILD THE GAME OUT OF BLOCKS')}</p>
-      <p>${T('The <b>Dino</b>, the <b>Cactus</b> and the <b>Ground</b> have no code yet. Click one — or press <b>C</b> — and write its blocks. Then press <b>SPACE</b> to play.')}</p>
+      <p>${T('The <b>Ground</b> already slides along, so the Dino looks like it is running. The <b>Dino</b> and the <b>Cactus</b> have no code yet. Click one — or press <b>C</b> — and write its blocks. Then press <b>SPACE</b> to play.')}</p>
       <div class="dn-keys">
         <div><kbd>SPACE</kbd> <span>${T('play, then jump')}</span></div>
         <div><kbd>C</kbd> <span>${T('open the blocks')}</span></div>

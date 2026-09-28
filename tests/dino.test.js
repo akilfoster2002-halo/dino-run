@@ -1,8 +1,9 @@
 /* =====================================================================
    DINO RUN — the build-it-yourself version.
 
-   Every refresh hands a student three objects and no code: the Dino, a
-   Cactus and the Ground. These tests hold the page to that, and hold the
+   Every refresh hands a student three objects: the Dino and a Cactus
+   with no code, and the Ground already sliding along under them so the
+   Dino looks like it runs. These tests hold the page to that, and hold the
    teacher's answer key (?answer) to being a real, short, winnable game —
    played headless, with the real VM running the real blocks.
    ===================================================================== */
@@ -46,16 +47,37 @@ test('three objects: the Dino, one Cactus and the Ground', ()=>{
   });
 });
 
-test('every refresh starts with no code, and nothing moves until a student writes it', ()=>{
+test('every refresh hands over the Ground\'s code and nothing else', ()=>{
   const s=DINO.starter();
-  NAMES.forEach(n=>assert.strictEqual(s[n].length, 0, `${n} arrives with code`));
+  ['Dino','Cactus'].forEach(n=>assert.strictEqual(s[n].length, 0, `${n} arrives with code`));
+  assert.strictEqual(s.Ground.length, 1, 'the Ground arrives without its script');
   const d=desert(2, 'starter');
-  NAMES.forEach(n=>assert.strictEqual(d.VM.actorByName(n).scripts.length, 0));
-  const where=()=>JSON.stringify(d.VM.project.actors.map(a=>[a.x, a.z]));
-  const before=where();
+  ['Dino','Cactus'].forEach(n=>assert.strictEqual(d.VM.actorByName(n).scripts.length, 0));
+  assert.strictEqual(d.VM.actorByName('Ground').scripts.length, 1);
+});
+
+test('with only the starter, the Ground runs and nothing else moves', ()=>{
+  const d=desert(2, 'starter');
+  const at=n=>{ const a=d.VM.actorByName(n); return [a.x, a.z]; };
+  const dino=at('Dino'), cactus=at('Cactus');
+  let lo=Infinity, hi=-Infinity;
   d.VM.greenFlag();
-  for(let i=0;i<120;i++){ d.G.keys.Space = i<5; d.step(); }
-  assert.strictEqual(where(), before, 'something moved with no code');
+  for(let i=0;i<240;i++){
+    d.G.keys.Space = i<5; d.step();
+    const x=d.VM.actorByName('Ground').x; lo=Math.min(lo,x); hi=Math.max(hi,x);
+  }
+  assert.ok(hi-lo > 20, 'the Ground does not slide, so the Dino does not look like it runs');
+  assert.ok(lo >= -DINO.NUM.TILE-1 && hi <= 0.01, `the Ground wandered off (${lo} to ${hi}): it never jumps back`);
+  assert.deepStrictEqual(at('Dino'), dino, 'the Dino moved with no code');
+  assert.deepStrictEqual(at('Cactus'), cactus, 'the Cactus moved with no code');
+  assert.strictEqual(Number(d.VM.project.vars.score)||0, 0, 'the starter counts the score, which is the student\'s job');
+});
+
+test('the starter\'s Ground is the answer\'s Ground, less the score', ()=>{
+  const g=DINO.starter().Ground[0];
+  const ops=all([g.hat]).concat(all(g.body)).map(b=>b.op);
+  const want=blocks('Ground').filter(b=>!(b.op==='data.change' && b.args.v==='score')).map(b=>b.op);
+  assert.deepStrictEqual(Array.from(ops), Array.from(want));
 });
 
 test('the scoreboard\'s variable is made ready, and it is the only one', ()=>{

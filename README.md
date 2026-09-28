@@ -2,19 +2,20 @@
 
 The dinosaur runner game, as a blank page for students to build.
 
-Every time the page opens (and every refresh) there are three objects and **no code**:
+Every time the page opens (and every refresh) there are three objects, and only the Ground has code:
 
 | | |
 |---|---|
-| **Dino** | standing on the ground at x = −12 |
-| **Cactus** | standing on the ground at x = 10 |
-| **Ground** | the desert line |
+| **Dino** | standing on the ground at x = −12, no code |
+| **Cactus** | standing on the ground at x = 10, no code |
+| **Ground** | the desert line, already sliding: press **SPACE** and the Dino looks like it runs |
 
 Students click an object (or press **C**) and write its blocks, then press **SPACE** to run them. The
 start card lists what to build, in English and Spanish:
 
-1. **Ground:** slide left `forever` with `change x by -0.3`; when `x position < -32`,
-   `change x by 32` so it never runs out.
+1. **Ground (already done):** it slides left `forever` with `change x by -0.3`; when
+   `x position < -32`, `change x by 32` so it never runs out. Students read it as the example for
+   the Cactus.
 2. **Cactus:** slide left the same way; when `x position < -20`, `set x to 20` so it comes back.
 3. **Dino:** `when space key pressed`, `glide` up to `y 6`, then `glide` back down to `y 0`.
 4. **Game over:** on the Cactus, `if touching Dino?` then `stop all`.
@@ -23,7 +24,7 @@ start card lists what to build, in English and Spanish:
 A `score` variable is made ready (the editor here has no "make a variable" button), and the
 scoreboard in the corner shows it. The block shelf holds only what the game needs.
 
-Code lasts until the page is refreshed. **↺** also clears it. Only the high score, the language and
+Code lasts until the page is refreshed. **↺** also puts the page back the way it opened. Only the high score, the language and
 the sound setting are remembered by the browser.
 
 **Teacher answer key:** open the page with `?answer` on the end, e.g.
@@ -64,12 +65,12 @@ python3 -m http.server 8796
 Then open http://localhost:8796.
 
 ```bash
-npm test        # 25 tests, no browser needed
+npm test        # 28 tests, no browser needed
 npm run bump    # moves ?v= on every tag so caches cannot serve half a build
 ```
 
-The tests check that every page load starts with no code and that nothing moves until a student
-writes it, then **play the teacher's answer key headless**: the real VM runs the real blocks with a
+The tests check that every page load hands over only the Ground's code, and that with it the Ground
+slides and wraps while the Dino and the Cactus stay put until a student writes their code, then **play the teacher's answer key headless**: the real VM runs the real blocks with a
 stand-in renderer and a 60 Hz clock. A player who jumps on time must survive a minute; one who does
 nothing, or jumps far too early or too late, must lose.
 
