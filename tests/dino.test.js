@@ -100,6 +100,33 @@ test('the room does not play the game: no rule is written in JavaScript', ()=>{
 });
 
 /* ================================================ the teacher's answer */
+test('the shelf has the clone blocks: make a copy, start it, delete it', ()=>{
+  ['ctrl.clone','event.clone','ctrl.delclone'].forEach(op=>
+    assert.ok(DINO.PALETTE.ops.includes(op), `${op} is missing from the shelf`));
+});
+
+test('cactus clones slide in, and a clone touching the Dino ends the game', ()=>{
+  const d=desert(4, 'starter');
+  const b=(op,args,body)=>{ const x={ op, args:args||{} }; if(body) x.body=body; return x; };
+  d.VM.actorByName('Cactus').scripts=[
+    { hat:b('event.flag'), body:[ b('looks.hide'), b('motion.goto',{ x:20, y:0, z:1 }),
+      b('ctrl.forever',{},[ b('ctrl.clone'), b('ctrl.wait',{ n:2 }) ]) ]},
+    { hat:b('event.clone'), body:[ b('looks.show'),
+      b('ctrl.forever',{},[
+        b('motion.changeBy',{ a:'x', n:-0.3 }),
+        b('ctrl.if',{ c:b('sense.touch',{ o:'Dino' }) }, [ b('ctrl.stop',{ w:'all' }) ]),
+        b('ctrl.if',{ c:b('op.lt',{ a:b('motion.pos',{ a:'x' }), b:-20 }) }, [ b('ctrl.delclone') ])
+      ]) ]}
+  ];
+  const clones=()=>d.VM.project.actors.filter(a=>a.isClone && a.name==='Cactus');
+  let most=0;
+  d.VM.greenFlag();
+  while(d.VM.running && d.seconds<10){ d.step(); most=Math.max(most, clones().length); }
+  assert.ok(most>=1, 'create a clone of myself made no copies');
+  assert.strictEqual(d.VM.running, false, 'a clone ran into the Dino and the game kept going');
+  assert.strictEqual(d.VM.actorByName('Cactus').visible, false, 'the hidden original showed itself');
+});
+
 test('the answer key uses only blocks on the shelf, with every slot filled', ()=>{
   const pal=DINO.PALETTE.ops;
   NAMES.forEach(n=>blocks(n).forEach(b=>{

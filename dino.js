@@ -58,8 +58,9 @@ window.DINO = (function(){
     locked:true,
     cats:['events','control','motion','looks','sensing','ops','data'],
     ops:[
-      'event.flag','event.key',
+      'event.flag','event.key','event.clone',
       'ctrl.wait','ctrl.repeat','ctrl.forever','ctrl.if','ctrl.ifelse','ctrl.stop',
+      'ctrl.clone','ctrl.delclone',
       'motion.goto','motion.glide','motion.changeBy','motion.setTo','motion.pos',
       'looks.shape','looks.show','looks.hide','looks.say',
       'sense.key','sense.touch',
