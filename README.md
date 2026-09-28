@@ -52,6 +52,18 @@ blocks.
 Both redeploy by themselves when `main` is pushed to GitHub: the Vercel project `dino-run` is
 connected to the MESACS_0.2 repo with its Root Directory set to `4`.
 
+## Its own repo
+
+**https://github.com/akilfoster2002-halo/dino-run** holds this folder on its own, with its history.
+It is a copy: the folder is still worked on in MESACS_0.2 (`4/`), and the copy is brought up to
+date from there with
+
+```bash
+git subtree push --prefix=4 dino-run main
+```
+
+run from the MESACS_0.2 checkout, where `dino-run` is a remote pointing at that repo.
+
 ## Running it
 
 It is a plain static folder, with no build step, no install and no network. Copy the whole folder
